@@ -272,19 +272,31 @@ class ArticleGenerator:
             print()
             print(f"   🤖 Generate site_name, description, topic via Ollama...")
 
-            settings_data = self.ollama.generate_json(
-                messages=[{
-                    "role": "user",
-                    "content": f"Buat identitas untuk website blog dengan domain {host} yang menggunakan tema '{dom['theme_slug']}'. "
-                               f"Buat site_name yang menarik, site_description (1-2 kalimat), dan site_topic (niche/kategori utama). "
-                               f"Kembalikan JSON: site_name, site_description, site_topic."
-                }],
-                temperature=0.8,
-            )
+            for attempt in range(5):
+                settings_data = self.ollama.generate_json(
+                    messages=[{
+                        "role": "user",
+                        "content": f"Buat identitas untuk website blog dengan domain {host} yang menggunakan tema '{dom['theme_slug']}'. "
+                                   f"Buat site_name yang menarik, site_description (1-2 kalimat), dan site_topic (niche/kategori utama). "
+                                   f"Kembalikan JSON: site_name, site_description, site_topic."
+                    }],
+                    temperature=0.8,
+                )
 
-            site_name = settings_data.get("site_name", host)
-            site_desc = settings_data.get("site_description", "")
-            site_topic = settings_data.get("site_topic", "")
+                site_name = settings_data.get("site_name", "").strip()
+                site_desc = settings_data.get("site_description", "").strip()
+                site_topic = settings_data.get("site_topic", "").strip()
+
+                if site_name and site_desc and site_topic:
+                    break
+                print(f"   ⚠️  Ada field kosong, regenerate percobaan {attempt+2}...")
+
+            if not site_name:
+                site_name = host.replace('.', ' ').title()
+            if not site_desc:
+                site_desc = f"Blog tentang {site_topic or host}"
+            if not site_topic:
+                site_topic = "Blog"
 
             print(f"   Name      : {site_name}")
             print(f"   Desc      : {site_desc[:60]}...")
