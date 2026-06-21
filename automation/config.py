@@ -21,3 +21,7 @@ class Config:
     SD_STEPS = int(os.getenv("SD_STEPS", "20"))
     SD_WIDTH = int(os.getenv("SD_WIDTH", "768"))
     SD_HEIGHT = int(os.getenv("SD_HEIGHT", "512"))
+
+    CLOUDFLARE_EMAIL = os.getenv("CLOUDFLARE_EMAIL", "")
+    CLOUDFLARE_API_KEY = os.getenv("CLOUDFLARE_API_KEY", "")
+    CLOUDFLARE_TUNNEL_ID = os.getenv("CLOUDFLARE_TUNNEL_ID", "")

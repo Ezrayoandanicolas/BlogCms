@@ -1,4 +1,6 @@
+import json
 import os
+import subprocess
 import sys
 from datetime import datetime, timedelta
 
@@ -232,7 +234,7 @@ class ArticleGenerator:
         print(f"   🔗 {self._domain_url}/blog/{post['slug']}")
         return post
 
-    def add_domains(self, domains: list[str]):
+    def add_domains(self, domains: list[str], port: int = 0):
         print(f"\n🏗️  Menambahkan {len(domains)} domain baru...")
         print(f"   BlogCMS: {Config.BLOGCMS_URL}\n")
 
@@ -242,8 +244,29 @@ class ArticleGenerator:
         print(f"✅ {len(created)} domain berhasil dibuat!")
         print(f"{'='*60}")
 
+        cf_tunnel_id = Config.CLOUDFLARE_TUNNEL_ID
+        cf_email = Config.CLOUDFLARE_EMAIL
+        cf_api_key = Config.CLOUDFLARE_API_KEY
+        use_tunnel = port > 0 and cf_tunnel_id and cf_email and cf_api_key
+
+        if use_tunnel:
+            print(f"\n🔧 Mode Cloudflare Tunnel aktif (port: {port})")
+            script_path = os.path.join(os.path.dirname(__file__), "add-tunnel-cli.php")
+            if not os.path.exists(script_path):
+                print(f"   ⚠️ Script {script_path} tidak ditemukan, skip tunnel")
+                use_tunnel = False
+
         for dom in created:
-            print(f"\n🏠 {dom['host']}")
+            host = dom['host']
+
+            # Skip tunnel untuk domain localhost (tanpa titik)
+            if use_tunnel and '.' not in host:
+                print(f"\n   ⏭️  {host} bukan domain publik, skip tunnel")
+                use_tunnel_this = False
+            else:
+                use_tunnel_this = use_tunnel
+
+            print(f"\n🏠 {host}")
             print(f"   Theme: {dom['theme_slug']}")
             print(f"   ID   : {dom['id']}")
             print()
@@ -252,14 +275,14 @@ class ArticleGenerator:
             settings_data = self.ollama.generate_json(
                 messages=[{
                     "role": "user",
-                    "content": f"Buat identitas untuk website blog dengan domain {dom['host']} yang menggunakan tema '{dom['theme_slug']}'. "
+                    "content": f"Buat identitas untuk website blog dengan domain {host} yang menggunakan tema '{dom['theme_slug']}'. "
                                f"Buat site_name yang menarik, site_description (1-2 kalimat), dan site_topic (niche/kategori utama). "
                                f"Kembalikan JSON: site_name, site_description, site_topic."
                 }],
                 temperature=0.8,
             )
 
-            site_name = settings_data.get("site_name", dom['host'])
+            site_name = settings_data.get("site_name", host)
             site_desc = settings_data.get("site_description", "")
             site_topic = settings_data.get("site_topic", "")
 
@@ -274,6 +297,36 @@ class ArticleGenerator:
                 "site_topic": site_topic,
             })
             print(f"   ✅ Settings tersimpan")
+
+            if use_tunnel_this:
+                service_url = f"http://localhost:{port}"
+                print(f"\n   🔧 Setup Cloudflare Tunnel...")
+                print(f"   Hostname: {host}")
+                print(f"   Service : {service_url}")
+                print(f"   Tunnel  : {cf_tunnel_id}")
+
+                result = subprocess.run(
+                    ["php", script_path, "--hostname", host, "--service", service_url],
+                    capture_output=True, text=True, timeout=30,
+                )
+
+                out = result.stdout.strip()
+                err = result.stderr.strip()
+
+                if out:
+                    try:
+                        data = json.loads(out)
+                        if data.get("success"):
+                            print(f"   ✅ Cloudflare tunnel OK: {data['data']['hostname']} → {data['data']['service']}")
+                        else:
+                            print(f"   ⚠️ Cloudflare error: {data.get('message', 'Unknown')}")
+                    except json.JSONDecodeError:
+                        print(f"   {out}")
+                if err:
+                    print(f"   ⚠️ {err}")
+
+                if result.returncode != 0:
+                    print(f"   ⚠️ PHP script exit code: {result.returncode}")
 
         print(f"\n{'='*60}")
         print("✅ Semua domain siap digunakan!")

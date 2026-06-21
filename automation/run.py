@@ -17,14 +17,15 @@ def main():
     parser.add_argument("--image-prompt", type=str, default="", help="Override prompt untuk featured image")
     parser.add_argument("--schedule", type=int, default=0, help="Generate N artikel per domain dengan jadwal harian")
     parser.add_argument("--daily", action="store_true", help="Generate 1 artikel per domain hari ini")
-    parser.add_argument("--add-domain", nargs="+", help="Tambah domain baru (misal: --add-domain localhost:8104 localhost:8105)")
+    parser.add_argument("--add-domain", nargs="+", help="Tambah domain baru (misal: --add-domain blog.example.com --port 7999)")
+    parser.add_argument("--port", type=int, default=0, help="Port lokal untuk Cloudflare tunnel (contoh: 7999)")
 
     args = parser.parse_args()
 
     gen = ArticleGenerator(topic=args.topic)
 
     if args.add_domain:
-        gen.add_domains(args.add_domain)
+        gen.add_domains(args.add_domain, port=args.port)
         return
 
     if args.daily:
