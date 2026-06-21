@@ -305,31 +305,36 @@ class ArticleGenerator:
                 print(f"   Service : {service_url}")
                 print(f"   Tunnel  : {cf_tunnel_id}")
 
-                result = subprocess.run(
-                    ["php", script_path, "--hostname", host, "--service", service_url],
-                    capture_output=True, timeout=30,
-                )
+                try:
+                    result = subprocess.run(
+                        ["php", script_path, "--hostname", host, "--service", service_url],
+                        capture_output=True, timeout=120,
+                    )
 
-                out = result.stdout.decode('utf-8', errors='replace').strip() if result.stdout else ""
-                err = result.stderr.decode('utf-8', errors='replace').strip() if result.stderr else ""
+                    out = result.stdout.decode('utf-8', errors='replace').strip() if result.stdout else ""
+                    err = result.stderr.decode('utf-8', errors='replace').strip() if result.stderr else ""
 
-                if err:
-                    for line in err.split("\n"):
-                        line = line.strip()
-                        if line:
-                            print(f"   {line}")
+                    if err:
+                        for line in err.split("\n"):
+                            line = line.strip()
+                            if line:
+                                print(f"   {line}")
 
-                if out:
-                    try:
-                        data = json.loads(out)
-                        if data.get("success"):
-                            print(f"   [OK] Cloudflare tunnel: {data['data']['hostname']} -> {data['data']['service']}")
-                        else:
-                            print(f"   [FAIL] {data.get('message', 'Unknown')}")
-                    except json.JSONDecodeError:
-                        print(f"   {out}")
-                elif result.returncode != 0:
-                    print(f"   [FAIL] PHP script exit code: {result.returncode}")
+                    if out:
+                        try:
+                            data = json.loads(out)
+                            if data.get("success"):
+                                print(f"   [OK] Cloudflare tunnel: {data['data']['hostname']} -> {data['data']['service']}")
+                            else:
+                                print(f"   [FAIL] {data.get('message', 'Unknown')}")
+                        except json.JSONDecodeError:
+                            print(f"   {out}")
+                    elif result.returncode != 0:
+                        print(f"   [FAIL] PHP script exit code: {result.returncode}")
+                except subprocess.TimeoutExpired:
+                    print(f"   [TIMEOUT] Cloudflare tunnel setup timed out (120s) for {host}")
+                except Exception as e:
+                    print(f"   [ERROR] {e}")
 
         print(f"\n{'='*60}")
         print("✅ Semua domain siap digunakan!")
