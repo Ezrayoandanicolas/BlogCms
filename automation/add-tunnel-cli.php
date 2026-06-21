@@ -4,13 +4,10 @@
  * Usage: php add-tunnel-cli.php --hostname blog.example.com --service http://localhost:7999
  *
  * Reads CLOUDFLARE_EMAIL, CLOUDFLARE_API_KEY, CLOUDFLARE_TUNNEL_ID from .env
+ * Output: JSON only on stdout (progress messages on stderr)
  */
 
-// Parse CLI arguments
-$longopts = [
-    'hostname:',  // e.g. blog.example.com or example.com
-    'service:',   // e.g. http://localhost:7999
-];
+$longopts = ['hostname:', 'service:'];
 $options = getopt('', $longopts);
 
 if (empty($options['hostname']) || empty($options['service'])) {
@@ -43,14 +40,13 @@ if (file_exists($envFile)) {
 $email = getenv('CLOUDFLARE_EMAIL') ?: '';
 $apiKey = getenv('CLOUDFLARE_API_KEY') ?: '';
 $tunnelId = getenv('CLOUDFLARE_TUNNEL_ID') ?: '';
-$tunnelId = $tunnelId ?: '08bcb3d5-97b3-4897-8d60-92c3affc7e25'; // fallback default
+$tunnelId = $tunnelId ?: '08bcb3d5-97b3-4897-8d60-92c3affc7e25';
 
 if ($email === '' || $apiKey === '') {
     echo json_encode(['success' => false, 'message' => 'CLOUDFLARE_EMAIL or CLOUDFLARE_API_KEY not set in .env']) . "\n";
     exit(1);
 }
 
-// Parse hostname → subdomain + domain
 $parts = explode('.', $hostname);
 if (count($parts) < 2) {
     echo json_encode(['success' => false, 'message' => "Invalid hostname: $hostname"]) . "\n";
@@ -60,12 +56,7 @@ if (count($parts) < 2) {
 $subdomain = count($parts) > 2 ? $parts[0] : '@';
 $domain = count($parts) > 2 ? implode('.', array_slice($parts, 1)) : $hostname;
 
-echo "🔧 Cloudflare Tunnel Setup\n";
-echo "   Hostname : $hostname\n";
-echo "   Subdomain: $subdomain\n";
-echo "   Domain   : $domain\n";
-echo "   Service  : $serviceUrl\n";
-echo "   Tunnel ID: $tunnelId\n\n";
+fwrite(STDERR, "[Cloudflare Tunnel] Hostname: $hostname | Service: $serviceUrl | Subdomain: $subdomain | Domain: $domain\n");
 
 function cf_api($url, $email, $apiKey, $method = 'GET', $data = null)
 {
@@ -111,31 +102,30 @@ function ensure_catch_all_rule(array $ingress)
 }
 
 // Step 1: Get zone info
-echo "📡 Mencari zone Cloudflare untuk {$domain}...\n";
+fwrite(STDERR, "[1/4] Looking up zone for $domain...\n");
 $zoneRes = cf_api(
     'https://api.cloudflare.com/client/v4/zones?name=' . urlencode($domain),
     $email, $apiKey
 );
 
 if (empty($zoneRes['success']) || empty($zoneRes['result'][0]['id'])) {
-    echo json_encode(['success' => false, 'message' => "Domain {$domain} tidak ditemukan di Cloudflare"]) . "\n";
+    echo json_encode(['success' => false, 'message' => "Domain $domain not found in Cloudflare"]) . "\n";
     exit(1);
 }
 
 $zoneId = $zoneRes['result'][0]['id'];
 $accountId = $zoneRes['result'][0]['account']['id'] ?? '';
-echo "   ✅ Zone ID: {$zoneId}\n";
-echo "   ✅ Account ID: {$accountId}\n";
+fwrite(STDERR, "[OK] Zone ID: $zoneId\n");
 
 // Step 2: Get tunnel config
-echo "\n📡 Mengambil konfigurasi tunnel...\n";
+fwrite(STDERR, "[2/4] Fetching tunnel configuration...\n");
 $configRes = cf_api(
     "https://api.cloudflare.com/client/v4/accounts/{$accountId}/cfd_tunnel/{$tunnelId}/configurations",
     $email, $apiKey
 );
 
 if (empty($configRes['success'])) {
-    $errMsg = $configRes['errors'][0]['message'] ?? 'Gagal ambil config tunnel';
+    $errMsg = $configRes['errors'][0]['message'] ?? 'Failed to get tunnel config';
     echo json_encode(['success' => false, 'message' => $errMsg]) . "\n";
     exit(1);
 }
@@ -144,14 +134,13 @@ $config = $configRes['result'] ?? $configRes;
 $ingress = $config['config']['ingress'] ?? [];
 
 // Step 3: Add/update hostname in ingress
-echo "   📝 Menambah hostname ke tunnel config...\n";
 $fullHostname = $subdomain === '@' ? $domain : $subdomain . '.' . $domain;
 $updated = false;
 foreach ($ingress as $i => $rule) {
     if (($rule['hostname'] ?? null) === $fullHostname) {
         $ingress[$i]['service'] = $serviceUrl;
         $updated = true;
-        echo "   🔄 Update existing rule: {$fullHostname}\n";
+        fwrite(STDERR, "[3/4] Update existing rule: $fullHostname\n");
         break;
     }
 }
@@ -160,13 +149,13 @@ if (!$updated) {
         'hostname' => $fullHostname,
         'service'  => $serviceUrl,
     ];
-    echo "   ➕ Add new rule: {$fullHostname}\n";
+    fwrite(STDERR, "[3/4] Add new rule: $fullHostname\n");
 }
 
 $ingress = ensure_catch_all_rule($ingress);
 
 // Step 4: PUT tunnel config
-echo "   💾 Menyimpan konfigurasi tunnel...\n";
+fwrite(STDERR, "[4/4] Saving tunnel configuration...\n");
 $putRes = cf_api(
     "https://api.cloudflare.com/client/v4/accounts/{$accountId}/cfd_tunnel/{$tunnelId}/configurations",
     $email, $apiKey, 'PUT',
@@ -174,15 +163,14 @@ $putRes = cf_api(
 );
 
 if (empty($putRes['success'])) {
-    $errMsg = $putRes['errors'][0]['message'] ?? 'Gagal update config tunnel';
+    $errMsg = $putRes['errors'][0]['message'] ?? 'Failed to update tunnel config';
     echo json_encode(['success' => false, 'message' => $errMsg]) . "\n";
     exit(1);
 }
-echo "   ✅ Tunnel config updated\n";
 
 // Step 5: DNS CNAME record
 $dnsTarget = $tunnelId . '.cfargotunnel.com';
-echo "\n📡 Mengupdate DNS CNAME...\n";
+fwrite(STDERR, "[DNS] Upserting CNAME record...\n");
 
 $dnsLookup = cf_api(
     "https://api.cloudflare.com/client/v4/zones/{$zoneId}/dns_records?type=CNAME&name=" . urlencode($fullHostname),
@@ -213,16 +201,18 @@ if ($existingDns) {
 }
 
 if (empty($dnsRes['success'])) {
-    $errMsg = $dnsRes['errors'][0]['message'] ?? 'Gagal update DNS';
+    $errMsg = $dnsRes['errors'][0]['message'] ?? 'Failed to update DNS';
     echo json_encode(['success' => false, 'message' => $errMsg]) . "\n";
     exit(1);
 }
 
-echo "   ✅ DNS CNAME {$dnsAction}: {$fullHostname} → {$dnsTarget}\n";
-echo "\n✅ Cloudflare tunnel setup complete!\n";
+fwrite(STDERR, "[OK] DNS CNAME $dnsAction: $fullHostname -> $dnsTarget\n");
+fwrite(STDERR, "[DONE] Cloudflare tunnel setup complete\n");
+
+// Final JSON output (stdout) for Python to parse
 echo json_encode([
     'success' => true,
-    'message' => "Tunnel configured: {$fullHostname} → {$serviceUrl}",
+    'message' => "Tunnel configured: $fullHostname -> $serviceUrl",
     'data' => [
         'hostname' => $fullHostname,
         'service'  => $serviceUrl,

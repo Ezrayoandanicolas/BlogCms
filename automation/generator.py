@@ -308,25 +308,29 @@ class ArticleGenerator:
                 result = subprocess.run(
                     ["php", script_path, "--hostname", host, "--service", service_url],
                     capture_output=True, text=True, timeout=30,
+                    encoding='utf-8', errors='replace',
                 )
 
-                out = result.stdout.strip()
-                err = result.stderr.strip()
+                out = result.stdout.strip() if result.stdout else ""
+                err = result.stderr.strip() if result.stderr else ""
+
+                if err:
+                    for line in err.split("\n"):
+                        line = line.strip()
+                        if line:
+                            print(f"   {line}")
 
                 if out:
                     try:
                         data = json.loads(out)
                         if data.get("success"):
-                            print(f"   ✅ Cloudflare tunnel OK: {data['data']['hostname']} → {data['data']['service']}")
+                            print(f"   [OK] Cloudflare tunnel: {data['data']['hostname']} -> {data['data']['service']}")
                         else:
-                            print(f"   ⚠️ Cloudflare error: {data.get('message', 'Unknown')}")
+                            print(f"   [FAIL] {data.get('message', 'Unknown')}")
                     except json.JSONDecodeError:
                         print(f"   {out}")
-                if err:
-                    print(f"   ⚠️ {err}")
-
-                if result.returncode != 0:
-                    print(f"   ⚠️ PHP script exit code: {result.returncode}")
+                elif result.returncode != 0:
+                    print(f"   [FAIL] PHP script exit code: {result.returncode}")
 
         print(f"\n{'='*60}")
         print("✅ Semua domain siap digunakan!")
