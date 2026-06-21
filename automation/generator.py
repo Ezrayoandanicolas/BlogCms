@@ -308,7 +308,7 @@ class ArticleGenerator:
                 try:
                     result = subprocess.run(
                         ["php", script_path, "--hostname", host, "--service", service_url],
-                        capture_output=True, timeout=120,
+                        capture_output=True, timeout=180,
                     )
 
                     out = result.stdout.decode('utf-8', errors='replace').strip() if result.stdout else ""
@@ -332,7 +332,7 @@ class ArticleGenerator:
                     elif result.returncode != 0:
                         print(f"   [FAIL] PHP script exit code: {result.returncode}")
                 except subprocess.TimeoutExpired:
-                    print(f"   [TIMEOUT] Cloudflare tunnel setup timed out (120s) for {host}")
+                    print(f"   [TIMEOUT] Cloudflare tunnel setup timed out for {host}")
                 except Exception as e:
                     print(f"   [ERROR] {e}")
 
