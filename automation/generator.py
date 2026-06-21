@@ -307,12 +307,11 @@ class ArticleGenerator:
 
                 result = subprocess.run(
                     ["php", script_path, "--hostname", host, "--service", service_url],
-                    capture_output=True, text=True, timeout=30,
-                    encoding='utf-8', errors='replace',
+                    capture_output=True, timeout=30,
                 )
 
-                out = result.stdout.strip() if result.stdout else ""
-                err = result.stderr.strip() if result.stderr else ""
+                out = result.stdout.decode('utf-8', errors='replace').strip() if result.stdout else ""
+                err = result.stderr.decode('utf-8', errors='replace').strip() if result.stderr else ""
 
                 if err:
                     for line in err.split("\n"):
