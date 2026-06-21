@@ -140,7 +140,13 @@ class BlogCMSClient:
             json={"domains": domains},
             headers=self._headers(),
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            try:
+                detail = resp.json()
+                msg = detail.get("message", detail.get("errors", str(resp.text)))
+            except Exception:
+                msg = resp.text
+            raise requests.HTTPError(f"{resp.status_code} Error: {msg}", response=resp)
         return resp.json()["data"]
 
     def update_settings(self, domain_id: int, settings: dict) -> dict:
@@ -149,7 +155,13 @@ class BlogCMSClient:
             json={"domain_id": domain_id, "settings": settings},
             headers=self._headers(),
         )
-        resp.raise_for_status()
+        if not resp.ok:
+            try:
+                detail = resp.json()
+                msg = detail.get("message", detail.get("errors", str(resp.text)))
+            except Exception:
+                msg = resp.text
+            raise requests.HTTPError(f"{resp.status_code} Error: {msg}", response=resp)
         return resp.json()["data"]
 
     def get_last_published_date(self) -> str:

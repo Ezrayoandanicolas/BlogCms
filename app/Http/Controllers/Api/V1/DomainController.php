@@ -45,7 +45,7 @@ class DomainController extends Controller
     {
         $data = $request->validate([
             'domains' => 'required|array|min:1',
-            'domains.*' => 'required|string|max:255|unique:domain_themes,domain',
+            'domains.*' => 'required|string|max:255',
         ]);
 
         $themes = Theme::where('status', true)->pluck('slug')->toArray();
@@ -54,9 +54,14 @@ class DomainController extends Controller
             return response()->json(['message' => 'No active themes available'], 400);
         }
 
+        $existing = DomainTheme::whereIn('domain', $data['domains'])->pluck('domain')->toArray();
         $created = [];
 
         foreach ($data['domains'] as $domain) {
+            if (in_array($domain, $existing)) {
+                continue;
+            }
+
             $themeSlug = $themes[array_rand($themes)];
 
             $domainTheme = DomainTheme::create([
@@ -73,10 +78,14 @@ class DomainController extends Controller
             ];
         }
 
+        $message = count($created) > 0
+            ? count($created) . ' domain(s) created successfully'
+            : 'All domains already exist';
+
         return response()->json([
-            'message' => 'Domains created successfully',
+            'message' => $message,
             'data' => $created,
-        ], 201);
+        ], count($created) > 0 ? 201 : 200);
     }
 
     public function update(Request $request, int $id): JsonResponse
