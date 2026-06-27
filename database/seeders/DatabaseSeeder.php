@@ -50,9 +50,9 @@ class DatabaseSeeder extends Seeder
             $slug = \Illuminate\Support\Str::slug($name);
             $cat = Category::where('slug', $slug)->first();
             if ($cat) {
-                $cat->update(['domain_id' => $domain->id]);
+                $cat->update(['domain_id' => $mainDomain->id]);
             } else {
-                Category::create(['name' => $name, 'slug' => $slug, 'domain_id' => $domain->id]);
+                Category::create(['name' => $name, 'slug' => $slug, 'domain_id' => $mainDomain->id]);
             }
         }
 
@@ -71,8 +71,8 @@ class DatabaseSeeder extends Seeder
         }
 
         // Site settings
-        Setting::firstOrCreate(['key' => 'active_theme', 'domain_id' => $domain->id], ['value' => 'default', 'domain_id' => $domain->id]);
-        Setting::firstOrCreate(['key' => 'site_name', 'domain_id' => $domain->id], ['value' => 'BlogCMS', 'domain_id' => $domain->id]);
-        Setting::firstOrCreate(['key' => 'site_description', 'domain_id' => $domain->id], ['value' => 'Modern Blog CMS built with Laravel', 'domain_id' => $domain->id]);
+        Setting::firstOrCreate(['key' => 'active_theme', 'domain_id' => $mainDomain->id], ['value' => 'default', 'domain_id' => $mainDomain->id]);
+        Setting::firstOrCreate(['key' => 'site_name', 'domain_id' => $mainDomain->id], ['value' => 'BlogCMS', 'domain_id' => $mainDomain->id]);
+        Setting::firstOrCreate(['key' => 'site_description', 'domain_id' => $mainDomain->id], ['value' => 'Modern Blog CMS built with Laravel', 'domain_id' => $mainDomain->id]);
     }
 }

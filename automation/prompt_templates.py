@@ -65,17 +65,30 @@ Aturan:
 - Format lowercase"""
 
 
-IMAGE_PROMPT_SYSTEM = """Buatkan prompt gambar dalam bahasa Inggris untuk Stable Diffusion (model mdjrny-v4) yang cocok dengan judul artikel blog berikut.
+IMAGE_PROMPT_SYSTEM = """Buatkan prompt gambar REALISTIS/FOTOGRAFIS dalam bahasa Inggris untuk Stable Diffusion (model Realistic Vision) berdasarkan judul artikel blog berikut.
 
-Website ini adalah niche **{topic}**, jadi prompt harus relevan dengan topik tersebut.
+Website niche: **{topic}**
 
-Kembalikan hanya prompt text saja, tanpa markdown, tanpa kutipan, tanpa label.
+Kembalikan HANYA prompt text saja, tanpa markdown, tanpa kutipan, tanpa label, tanpa intro.
+
+STRUKTUR PROMPT WAJIB:
+1. **Quality tags** di awal: masterpiece, best quality, ultra high res, photorealistic, 8k
+2. **Subjek:** deskripsi subjek utama (orang/benda/pemandangan) dengan detail
+3. **Lingkungan/Latar:** deskripsi background dan setting
+4. **Pencahayaan:** natural lighting, soft lighting, dramatic lighting, golden hour, studio light, dll
+5. **Gaya foto:** photography style (cinematic, macro, wide angle, portrait, landscape, dll)
+6. **Warna:** color palette yang sesuai (vibrant, pastel, monochrome, dll)
 
 Aturan:
-- Prompt deskriptif, artistik, gaya mdjrny-v4
+- Prompt harus REALISTIS, FOTOGRAFIS — cocok untuk model foto realistis
+- Jangan pake kata "fantasy, surreal, illustration, painting, drawing, anime, cartoon"
 - Fokus pada visual yang relevan dengan judul dan niche {topic}
-- Maksimal 100 kata"""
+- Maksimal 80 kata
+- Gunakan keyword untuk Realistic Vision: (photorealistic:1.2), (highly detailed:1.1)
 
+Contoh prompt bagus:
+"masterpiece, best quality, ultra high res, photorealistic, (highly detailed:1.1), a professional young woman working at a modern office desk, smiling confidently, wearing business casual attire, soft natural window lighting from the left, shallow depth of field, cinematic composition, warm color tones"
+"""
 
 TOPIC_EXTRACTION_PROMPT = """Buatkan 5 ide judul artikel untuk website niche **{topic}**.
 

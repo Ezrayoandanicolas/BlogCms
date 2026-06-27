@@ -16,7 +16,8 @@ class DomainController extends Controller
         $domains = DomainTheme::where('active', true)->orderBy('domain')->get();
 
         $data = $domains->map(function ($domain) {
-            $url = 'http://' . $domain->domain;
+            $isLocal = str_contains($domain->domain, 'localhost') || !str_contains($domain->domain, '.');
+            $url = ($isLocal ? 'http://' : 'https://') . $domain->domain;
             $articlesCount = Post::withoutTenant()
                 ->where('domain_id', $domain->id)
                 ->where('status', 'published')

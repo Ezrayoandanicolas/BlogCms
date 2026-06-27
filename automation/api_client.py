@@ -1,3 +1,5 @@
+import time
+
 import requests
 
 
@@ -26,58 +28,55 @@ class BlogCMSClient:
             headers["X-API-Key"] = self.api_key
         return headers
 
+    def _request(self, method: str, path: str, **kwargs) -> requests.Response:
+        url = f"{self.base_url}{path}"
+        headers = self._headers()
+        if "headers" in kwargs:
+            headers.update(kwargs.pop("headers"))
+
+        for attempt in range(3):
+            try:
+                resp = requests.request(method, url, headers=headers, timeout=120, **kwargs)
+                if resp.ok:
+                    return resp
+                if 500 <= resp.status_code < 600:
+                    if attempt < 2:
+                        wait = (attempt + 1) * 10
+                        print(f"   ⚠️ {method.upper()} {path}: {resp.status_code}, retry {wait}s...")
+                        time.sleep(wait)
+                        continue
+                resp.raise_for_status()
+            except (requests.ConnectionError, requests.Timeout) as e:
+                if attempt == 2:
+                    raise
+                wait = (attempt + 1) * 10
+                print(f"   ⚠️ {method.upper()} {path}: {e}, retry {wait}s...")
+                time.sleep(wait)
+        return resp
+
     def upload_image(self, image_path: str, folder: str = "media") -> str:
         with open(image_path, "rb") as f:
-            resp = requests.post(
-                f"{self.base_url}/api/v1/media/upload",
-                headers=self._headers(),
-                files={"file": f},
-                data={"folder": folder},
-            )
-        resp.raise_for_status()
+            resp = self._request("POST", "/api/v1/media/upload", files={"file": f}, data={"folder": folder})
         return resp.json()["data"]["url"]
 
     def create_category(self, name: str, slug: str = "") -> dict:
         data = {"name": name}
         if slug:
             data["slug"] = slug
-        resp = requests.post(
-            f"{self.base_url}/api/v1/categories",
-            json=data,
-            headers=self._headers(),
-        )
-        resp.raise_for_status()
+        resp = self._request("POST", "/api/v1/categories", json=data)
         return resp.json()["data"]
 
     def create_tag(self, name: str, slug: str = "") -> dict:
         data = {"name": name}
         if slug:
             data["slug"] = slug
-        resp = requests.post(
-            f"{self.base_url}/api/v1/tags",
-            json=data,
-            headers=self._headers(),
-        )
-        resp.raise_for_status()
+        resp = self._request("POST", "/api/v1/tags", json=data)
         return resp.json()["data"]
 
-    def create_post(
-        self,
-        title: str,
-        content: str,
-        excerpt: str = "",
-        category_id: int = None,
-        featured_image: str = "",
-        status: str = "published",
-        tags: list[str] = None,
-        published_at: str = "",
-    ) -> dict:
-        data = {
-            "title": title,
-            "content": content,
-            "excerpt": excerpt,
-            "status": status,
-        }
+    def create_post(self, title: str, content: str, excerpt: str = "", category_id: int = None,
+                    featured_image: str = "", status: str = "published", tags: list[str] = None,
+                    published_at: str = "") -> dict:
+        data = {"title": title, "content": content, "excerpt": excerpt, "status": status}
         if category_id:
             data["category_id"] = category_id
         if featured_image:
@@ -86,90 +85,39 @@ class BlogCMSClient:
             data["tags"] = tags
         if published_at:
             data["published_at"] = published_at
-        resp = requests.post(
-            f"{self.base_url}/api/v1/posts",
-            json=data,
-            headers=self._headers(),
-        )
-        resp.raise_for_status()
+        resp = self._request("POST", "/api/v1/posts", json=data)
         return resp.json()["data"]
 
     def get_categories(self) -> list[dict]:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/categories",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/categories")
         return resp.json()["data"]
 
     def get_tags(self) -> list[dict]:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/tags",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/tags")
         return resp.json()["data"]
 
     def get_site_settings(self) -> dict:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/settings",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/settings")
         return resp.json()["data"]
 
     def get_domains(self) -> list[dict]:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/domains",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/domains")
         return resp.json()["data"]
 
     def get_themes(self) -> list[dict]:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/themes",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/themes")
         return resp.json()["data"]
 
     def create_domains(self, domains: list[str]) -> list[dict]:
-        resp = requests.post(
-            f"{self.base_url}/api/v1/domains",
-            json={"domains": domains},
-            headers=self._headers(),
-        )
-        if not resp.ok:
-            try:
-                detail = resp.json()
-                msg = detail.get("message", detail.get("errors", str(resp.text)))
-            except Exception:
-                msg = resp.text
-            raise requests.HTTPError(f"{resp.status_code} Error: {msg}", response=resp)
+        resp = self._request("POST", "/api/v1/domains", json={"domains": domains})
         return resp.json()["data"]
 
     def update_settings(self, domain_id: int, settings: dict) -> dict:
-        resp = requests.put(
-            f"{self.base_url}/api/v1/settings",
-            json={"domain_id": domain_id, "settings": settings},
-            headers=self._headers(),
-        )
-        if not resp.ok:
-            try:
-                detail = resp.json()
-                msg = detail.get("message", detail.get("errors", str(resp.text)))
-            except Exception:
-                msg = resp.text
-            raise requests.HTTPError(f"{resp.status_code} Error: {msg}", response=resp)
+        resp = self._request("PUT", "/api/v1/settings", json={"domain_id": domain_id, "settings": settings})
         return resp.json()["data"]
 
     def get_last_published_date(self) -> str:
-        resp = requests.get(
-            f"{self.base_url}/api/v1/posts?per_page=1",
-            headers={"Accept": "application/json"},
-        )
-        resp.raise_for_status()
+        resp = self._request("GET", "/api/v1/posts?per_page=1")
         data = resp.json().get("data", [])
         if data:
             return data[0].get("published_at", "")

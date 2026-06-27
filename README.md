@@ -204,10 +204,18 @@ OLLAMA_URL=http://localhost:11434/api/chat
 OLLAMA_MODEL=llama3.2
 
 SD_WEBUI_URL=http://127.0.0.1:7860
-SD_MODEL=mdjrny-v4.safetensors
-SD_STEPS=20
-SD_WIDTH=768
-SD_HEIGHT=512
+SD_MODEL=realisticVisionV51_v51VAE.safetensors
+SD_STEPS=25
+SD_WIDTH=640
+SD_HEIGHT=384
+SD_CFG_SCALE=5
+SD_SAMPLER=DPM++ 2M Karras
+SD_NEGATIVE_PROMPT=
+SD_HIRES_ENABLE=true
+SD_HIRES_SCALE=2
+SD_HIRES_UPSCALER=Latent
+SD_HIRES_STEPS=15
+SD_HIRES_DENOISING=0.4
 ```
 
 ---
@@ -240,22 +248,94 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 | Command | Fungsi |
 |---------|--------|
-| `python run.py` | Generate 1 artikel untuk domain pertama |
-| `python run.py --count 5` | Batch 5 artikel |
-| `python run.py --topic "Tips Kesehatan"` | Override topik |
-| `python run.py --daily` | 1 artikel per domain hari ini |
-| `python run.py --schedule 7` | 7 artikel per domain (terjadwal) |
-| `python run.py --topics` | Tampilkan ide artikel (5 rekomendasi) |
-| `python run.py --image-prompt "forest fog"` | Override prompt gambar |
-| `python run.py --add-domain localhost:8104` | Tambah domain baru (Ollama generate settings) |
-| `python run.py --add-domain localhost:8104 localhost:8105` | Tambah multiple domain sekaligus |
+| `python run.py` | Generate 1 artikel untuk domain default, langsung publish |
+| `python run.py --count 5` | Batch: generate 5 artikel langsung publish |
+| `python run.py --topic "Tips Kesehatan"` | Override topik (abaikan topic dari .env/settings) |
+| `python run.py --daily` | 1 artikel per domain untuk hari ini |
+| `python run.py --schedule 7` | **Isi jadwal 7 hari ke depan** — auto hitung kurang berapa per domain |
+| `python run.py --schedule 14 --from 2026-06-20` | Schedule mulai dari tanggal tertentu (contoh: 20 Juni - 3 Juli) |
+| `python run.py --topics` | Lihat 5 rekomendasi judul artikel |
+| `python run.py --image-prompt "forest fog"` | Override prompt image (skip Ollama generate prompt) |
+| `python run.py --add-domain localhost:8104` | Tambah domain + Ollama generate settings |
+| `python run.py --add-domain blog.example.com --port 7999` | Tambah domain + Cloudflare tunnel + DNS |
+| `python run.py --add-domain blog1.com blog2.com` | Tambah multiple domain sekaligus |
 
-**Contoh automation + domain:**
+### Automation — Penjelasan Detail
+
+Semua command jalan dari folder `automation/`:
+
 ```bash
-# 1. Tambah 2 domain baru
-python run.py --add-domain localhost:8104 localhost:8105
+cd /var/www/html/Project/BlogCms/blogcms/automation
+source venv/bin/activate  # Windows: venv\Scripts\activate
+```
 
-# 2. Isi konten untuk semua domain (termasuk baru)
+#### 1. Single article (default)
+```bash
+python run.py
+```
+Generate 1 artikel untuk domain `BLOGCMS_URL`. Flow: Outline → Konten → Tags → Image prompt (Ollama) → Generate gambar (SD WebUI) → Upload → Publish.
+
+#### 2. Batch article
+```bash
+python run.py --count 3
+```
+Generate 3 artikel langsung publish, tanpa jadwal. Cocok buat isi konten awal.
+
+#### 3. Schedule (isi jadwal ke depan)
+```bash
+# Isi jadwal 7 hari ke depan (mulai dari last published + 1, atau hari ini)
+python run.py --schedule 7
+
+# Isi jadwal 14 hari mulai tanggal tertentu
+python run.py --schedule 14 --from 2026-06-20
+```
+Otomatis cek artikel existing per domain. Contoh: domain A punya 3 artikel, `--schedule 14` → cuma generate 11 artikel sisanya. Tanggal `published_at` sesuai jadwal (20 Juni, 21 Juni, ... 3 Juli).
+
+#### 4. Daily (1 artikel hari ini per domain)
+```bash
+python run.py --daily
+```
+Generate 1 artikel per domain aktif yang punya < 7 artikel untuk hari ini jam 08:00 UTC.
+
+#### 5. Tambah domain baru
+```bash
+# Mode simple (tanpa tunnel): domain akses via port langsung
+python run.py --add-domain localhost:8104
+
+# Mode Cloudflare: domain publik + tunnel + DNS CNAME otomatis
+python run.py --add-domain blog.example.com --port 7999
+
+# Tambah banyak domain sekaligus
+python run.py --add-domain blog1.com blog2.com blog3.com --port 7999
+```
+- Simple mode: cukup buat domain + theme + settings via Ollama
+- Cloudflare mode: buat domain + theme + settings + setup Cloudflare tunnel + DNS CNAME
+- Domain yang sudah ada di DB akan **dilewati** (tidak error)
+
+#### 6. Cari ide topik
+```bash
+python run.py --topics
+```
+Ollama generate 5 judul artikel rekomendasi sesuai niche.
+
+#### 7. Override parameter
+```bash
+# Ganti topik (abaikan setting dari BlogCMS)
+python run.py --topic "Teknologi AI" --count 3
+
+# Ganti prompt gambar (skip Ollama generate prompt)
+python run.py --image-prompt "sunset over ocean, beach, cinematic lighting"
+```
+
+**Contoh workflow lengkap:**
+```bash
+# 1. Tambah domain
+python run.py --add-domain blog.example.com --port 7999
+
+# 2. Isi 7 artikel per domain mulai dari awal bulan
+python run.py --schedule 14 --from 2026-06-01
+
+# 3. Besoknya: isi lagi 7 artikel ke depan
 python run.py --schedule 7
 ```
 
