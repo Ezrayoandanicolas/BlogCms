@@ -38,12 +38,8 @@ class DomainThemeMiddleware
         } else {
             config(['app.domain_id' => 0]);
 
-            if ($request->expectsJson()) {
-                return response()->json(['message' => 'Domain not registered'], 404);
-            }
-
             $path = trim($request->path(), '/');
-            if (!str_starts_with($path, 'admin')) {
+            if (!str_starts_with($path, 'admin') && !$request->expectsJson()) {
                 return redirect('/admin/login');
             }
         }

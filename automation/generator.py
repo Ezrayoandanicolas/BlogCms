@@ -34,8 +34,11 @@ class ArticleGenerator:
             api_key=Config.BLOGCMS_API_KEY,
         )
         if not topic:
-            settings = self.cms.get_site_settings()
-            topic = settings.get("site_topic", "") or Config.BLOGCMS_TOPIC
+            try:
+                settings = self.cms.get_site_settings()
+                topic = settings.get("site_topic", "") or Config.BLOGCMS_TOPIC
+            except Exception:
+                topic = Config.BLOGCMS_TOPIC
         self.topic = topic
 
     @staticmethod
