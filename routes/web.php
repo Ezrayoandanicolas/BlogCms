@@ -55,7 +55,7 @@ Route::prefix('admin')->group(function () {
     Route::post('/logout', [\App\Http\Controllers\Admin\AdminController::class, 'logout'])->name('admin.logout');
 
     Route::middleware(['admin', 'admin.domain'])->group(function () {
-        Route::post('/switch-domain/{id}', [\App\Http\Controllers\Admin\AdminController::class, 'switchDomain'])->name('admin.switch-domain');
+        Route::match(['GET', 'POST'], '/switch-domain/{id?}', [\App\Http\Controllers\Admin\AdminController::class, 'switchDomain'])->name('admin.switch-domain');
         Route::get('/', [\App\Http\Controllers\Admin\AdminController::class, 'dashboard'])->name('admin.dashboard');
         Route::get('/posts', [\App\Http\Controllers\Admin\AdminController::class, 'posts'])->name('admin.posts');
         Route::post('/posts/bulk', [\App\Http\Controllers\Admin\AdminController::class, 'postBulk'])->name('admin.posts.bulk');
