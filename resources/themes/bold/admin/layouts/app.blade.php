@@ -18,9 +18,9 @@
 
             <div class="p-4 border-b border-slate-700">
                 <label class="text-xs text-slate-400 uppercase tracking-wider font-medium block mb-1.5">Website</label>
-                <form action="{{ url('/admin/switch-domain/' . ($currentDomainId ?? '')) }}" method="POST" id="domain-switch-form">
+                <form action="{{ url('/admin/switch-domain') }}" method="POST" id="domain-switch-form">
                     @csrf
-                    <select name="domain_id" onchange="this.form.action=this.form.action.replace(/\/\d+$/, '/' + this.value); this.form.submit();"
+                    <select name="domain_id" onchange="this.form.submit()"
                             class="w-full bg-slate-700 text-white border border-slate-600 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
                         @foreach($adminDomains ?? [] as $d)
                             <option value="{{ $d->id }}" {{ ($currentDomainId ?? '') == $d->id ? 'selected' : '' }}>{{ $d->domain }}</option>

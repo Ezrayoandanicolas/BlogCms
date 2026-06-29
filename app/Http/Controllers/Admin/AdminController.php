@@ -424,8 +424,11 @@ class AdminController extends Controller
         return back()->with('success', 'Domain mapping deleted.');
     }
 
-    public function switchDomain(int $id = 0, Request $request)
+    public function switchDomain(Request $request, int $id = 0)
     {
+        if (!$id) {
+            $id = $request->input('domain_id', 0);
+        }
         if (!$id) {
             return redirect('/admin');
         }
