@@ -22,10 +22,15 @@ def main():
     parser.add_argument("--retry", action="store_true", help="Proses ulang artikel yang gagal di retry_queue.json")
     parser.add_argument("--add-domain", nargs="+", help="Tambah domain baru (misal: --add-domain blog.example.com --port 7999)")
     parser.add_argument("--port", type=int, default=0, help="Port lokal untuk Cloudflare tunnel (contoh: 7999)")
+    parser.add_argument("--process-images", action="store_true", help="Generate & upload gambar dari antrian image_queue.json")
 
     args = parser.parse_args()
 
     gen = ArticleGenerator(topic=args.topic)
+
+    if args.process_images:
+        gen.process_image_queue()
+        return
 
     if args.add_domain:
         gen.add_domains(args.add_domain, port=args.port)

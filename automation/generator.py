@@ -136,6 +136,89 @@ class ArticleGenerator:
         except OSError as e:
             print(f"   ⚠️ Gagal simpan retry queue: {e}")
 
+    @property
+    def _image_queue_file(self) -> str:
+        return os.path.join(os.path.dirname(__file__), "image_queue.json")
+
+    def _load_image_queue(self) -> list:
+        if os.path.exists(self._image_queue_file):
+            try:
+                with open(self._image_queue_file) as f:
+                    return json.load(f)
+            except (json.JSONDecodeError, OSError):
+                pass
+        return []
+
+    def _save_image_queue(self, queue: list):
+        try:
+            with open(self._image_queue_file, "w") as f:
+                json.dump(queue, f, indent=2)
+        except OSError as e:
+            print(f"   ⚠️ Gagal simpan image queue: {e}")
+
+    def _enqueue_image(self, post: dict, image_prompt: str):
+        item = {
+            "domain_url": self.cms.base_url,
+            "article_id": post["id"],
+            "title": post["title"],
+            "image_prompt": image_prompt,
+        }
+        queue = self._load_image_queue()
+        queue.append(item)
+        self._save_image_queue(queue)
+        print(f"   🖼️  Image prompt antri ({post['id']} - {post['title']})")
+
+    def process_image_queue(self):
+        queue = self._load_image_queue()
+        if not queue:
+            print("✅ Tidak ada antrian gambar.")
+            return 0
+
+        print(f"\n🖼️  Memproses {len(queue)} gambar dalam antrian...")
+        remaining = []
+        success = 0
+
+        for item in queue:
+            domain_url = item["domain_url"]
+            article_id = item["article_id"]
+            image_prompt = item["image_prompt"]
+            title = item.get("title", f"ID {article_id}")
+
+            cms = BlogCMSClient(domain_url, Config.BLOGCMS_EMAIL, Config.BLOGCMS_PASSWORD, Config.BLOGCMS_TOKEN, api_key=Config.BLOGCMS_API_KEY)
+
+            print(f"\n--- {title} ({domain_url}) ---")
+            print(f"   🎨 Generate gambar...")
+
+            try:
+                from image_generator import generate_image_from_prompt
+                image_path = generate_image_from_prompt(image_prompt)
+                if not image_path:
+                    print(f"   ⚠️ Gagal generate gambar, skip")
+                    remaining.append(item)
+                    continue
+
+                print(f"   📤 Upload gambar...")
+                image_url = cms.upload_image(image_path)
+                print(f"   ✅ Image: {image_url}")
+
+                print(f"   📝 Update article {article_id}...")
+                cms.update_post(article_id, title=title, featured_image=image_url)
+                print(f"   ✅ Artikel diupdate dengan gambar!")
+                success += 1
+
+            except Exception as e:
+                print(f"   ⚠️ Gagal: {e}")
+                remaining.append(item)
+
+        self._save_image_queue(remaining)
+
+        print(f"\n{'='*60}")
+        print(f"✅ {success} gambar berhasil diproses")
+        if remaining:
+            print(f"⏳ {len(remaining)} masih antri (akan dicoba lagi nanti)")
+
+        return success
+
     def generate_article(self, topic: str = "", image_prompt_override: str = "", published_at: str = "") -> dict:
         active_topic = topic or self.topic
         print(f"\n{'='*60}")
@@ -252,22 +335,20 @@ class ArticleGenerator:
             cat = self.cms.create_category(category_name)
             category_id = cat["id"]
 
-        # Generate & upload image
-        featured_image_url = ""
-        if image_prompt:
-            print("   🎨 Generate featured image...")
-            image_path = generate_image_from_prompt(image_prompt)
-            if image_path:
-                print("   📤 Upload image...")
-                try:
-                    featured_image_url = self.cms.upload_image(image_path)
-                    print(f"   ✅ Image: {featured_image_url}")
-                except Exception as e:
-                    print(f"   ⚠️ Upload image gagal: {e}. Lanjut tanpa gambar.")
-            else:
-                print("   ⚠️ Gagal generate image")
+        # === PUBLISH ===
+        print("\n📤 Publishing ke BlogCMS...")
 
-        # Publish
+        # Cari/buat kategori
+        print(f"   📂 Kategori: {category_name}")
+        categories = self.cms.get_categories()
+        existing = [c for c in categories if c["name"].lower() == category_name.lower()]
+        if existing:
+            category_id = existing[0]["id"]
+        else:
+            cat = self.cms.create_category(category_name)
+            category_id = cat["id"]
+
+        # Publish (tanpa gambar dulu)
         pub_str = f" → {published_at}" if published_at else ""
         print(f"   📝 Publish artikel{pub_str}...")
 
@@ -278,7 +359,6 @@ class ArticleGenerator:
             "excerpt": excerpt,
             "_category_name": category_name,
             "category_id": category_id,
-            "featured_image": featured_image_url,
             "status": "published",
             "tags": tags,
             "published_at": published_at,
@@ -290,7 +370,6 @@ class ArticleGenerator:
                 content=content,
                 excerpt=excerpt,
                 category_id=category_id,
-                featured_image=featured_image_url,
                 status="published",
                 tags=tags,
                 published_at=published_at,
@@ -298,6 +377,10 @@ class ArticleGenerator:
             print(f"\n✅ Artikel dipublikasikan!")
             print(f"   ID: {post['id']} - {post['title']}")
             print(f"   🔗 {self._domain_url}/blog/{post['slug']}")
+
+            if image_prompt:
+                self._enqueue_image(post, image_prompt)
+
             self._process_retry_queue()
             return post
         except Exception as e:

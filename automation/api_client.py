@@ -88,6 +88,10 @@ class BlogCMSClient:
         resp = self._request("POST", "/api/v1/posts", json=data)
         return resp.json()["data"]
 
+    def update_post(self, post_id: int, **kwargs) -> dict:
+        resp = self._request("PUT", f"/api/v1/posts/{post_id}", json=kwargs)
+        return resp.json()["data"]
+
     def get_categories(self) -> list[dict]:
         resp = self._request("GET", "/api/v1/categories")
         return resp.json()["data"]
