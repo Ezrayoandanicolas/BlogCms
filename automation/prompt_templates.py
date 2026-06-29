@@ -15,7 +15,9 @@ Kembalikan JSON:
 }
 
 Aturan:
-- Judul unik, menarik, mengandung keyword utama, relevan dengan {topic}
+- Judul UNIK, beda dari judul blog lain pada niche yang sama
+- Jangan pakai judul yang generik atau itu-itu saja
+- Gunakan angle/perspektif yang fresh dan berbeda
 - 4-6 subtitle dalam outline
 - Category relevan dengan niche website
 - Bahasa Indonesia"""

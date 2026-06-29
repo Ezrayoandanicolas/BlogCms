@@ -219,20 +219,25 @@ class ArticleGenerator:
 
         return success
 
-    def generate_article(self, topic: str = "", image_prompt_override: str = "", published_at: str = "") -> dict:
+    def generate_article(self, topic: str = "", image_prompt_override: str = "", published_at: str = "", used_titles: list[str] | None = None) -> dict:
         active_topic = topic or self.topic
+        used_titles = used_titles or []
         print(f"\n{'='*60}")
         print(f"📝 Niche: {active_topic}")
         print(f"{'='*60}")
 
         # === LANGKAH 1: Judul + Outline ===
         print("\n1️⃣  Generate judul & outline...")
+        user_msg = f"Buat outline artikel tentang: {active_topic}"
+        if used_titles:
+            used_str = "\n".join(f"- \"{t}\"" for t in used_titles[-5:])
+            user_msg += f"\n\nJudul berikut SUDAH DIPAKAI, jangan buat judul yang mirip:\n{used_str}"
         outline_data = self.llm.generate_json(
             messages=[
-                {"role": "user", "content": f"Buat outline artikel tentang: {active_topic}"}
+                {"role": "user", "content": user_msg}
             ],
             system=self._fmt(OUTLINE_PROMPT),
-            temperature=0.7,
+            temperature=0.85,
         )
         title = outline_data.get("title", "Untitled")
         category_name = outline_data.get("category", "Umum")
@@ -549,9 +554,12 @@ class ArticleGenerator:
         print(f"   BlogCMS: {self._domain_url}\n")
 
         results = []
+        used_titles = []
         for i in range(count):
             print(f"\n--- Artikel {i+1}/{count} ---")
-            post = self.generate_article(topic=topic)
+            post = self.generate_article(topic=topic, used_titles=used_titles)
+            if post.get("title"):
+                used_titles.append(post["title"])
             results.append(post)
 
         self._process_retry_queue()
@@ -658,14 +666,17 @@ class ArticleGenerator:
             start = start.replace(hour=8, minute=0, second=0, microsecond=0)
             print(f"   📅 Mulai dari: {start.strftime('%Y-%m-%d')}")
 
+            used_titles = []
             for i in range(need):
                 pub_date = start + timedelta(days=i)
                 pub_str = pub_date.strftime("%Y-%m-%d %H:%M:%S")
                 print(f"\n--- Artikel {i+1}/{need} ({pub_date.strftime('%Y-%m-%d')}) ---")
                 try:
-                    post = gen.generate_article(published_at=pub_str)
+                    post = gen.generate_article(published_at=pub_str, used_titles=used_titles)
                     if post.get("id"):
                         total += 1
+                    if post.get("title"):
+                        used_titles.append(post["title"])
                 except Exception as e:
                     print(f"   ❌ Gagal generate artikel: {e}")
                     print(f"   ⏭️  Skip, lanjut ke artikel berikutnya...")
