@@ -10,9 +10,6 @@ class TenantScope implements Scope
 {
     public function apply(Builder $builder, Model $model): void
     {
-        $domainId = config('app.domain_id');
-        if ($domainId) {
-            $builder->where('domain_id', $domainId);
-        }
+        $builder->where('domain_id', config('app.domain_id', 0));
     }
 }

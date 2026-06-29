@@ -35,6 +35,17 @@ class DomainThemeMiddleware
             if ($siteTopic) {
                 config(['app.site_topic' => $siteTopic]);
             }
+        } else {
+            config(['app.domain_id' => 0]);
+
+            if ($request->expectsJson()) {
+                return response()->json(['message' => 'Domain not registered'], 404);
+            }
+
+            $path = trim($request->path(), '/');
+            if (!str_starts_with($path, 'admin')) {
+                return redirect('/admin/login');
+            }
         }
 
         return $next($request);
