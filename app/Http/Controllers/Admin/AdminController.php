@@ -97,9 +97,9 @@ class AdminController extends Controller
         $domainStats = DomainTheme::orderBy('domain')->get()->map(function ($d) {
             return [
                 'domain' => $d->domain,
-                'posts' => Post::where('domain_id', $d->id)->where('status', 'published')->count(),
-                'views' => (int) Post::where('domain_id', $d->id)->sum('views'),
-                'comments' => Comment::where('domain_id', $d->id)->count(),
+                'posts' => Post::withoutTenant()->where('domain_id', $d->id)->where('status', 'published')->count(),
+                'views' => (int) Post::withoutTenant()->where('domain_id', $d->id)->sum('views'),
+                'comments' => Comment::withoutTenant()->where('domain_id', $d->id)->count(),
             ];
         });
 
