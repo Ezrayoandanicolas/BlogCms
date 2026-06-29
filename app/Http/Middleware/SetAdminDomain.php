@@ -36,10 +36,8 @@ class SetAdminDomain
             }
         }
 
-        View::composer('theme::default.admin.layouts.app', function ($view) {
-            $view->with('adminDomains', DomainTheme::where('active', true)->orderBy('domain')->get());
-            $view->with('currentDomainId', session('admin_domain_id', config('app.domain_id')));
-        });
+        View::share('adminDomains', DomainTheme::where('active', true)->orderBy('domain')->get());
+        View::share('currentDomainId', session('admin_domain_id', config('app.domain_id')));
 
         return $next($request);
     }
