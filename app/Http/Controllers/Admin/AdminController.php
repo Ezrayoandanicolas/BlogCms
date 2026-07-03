@@ -155,6 +155,7 @@ class AdminController extends Controller
             'content' => 'required',
             'excerpt' => 'nullable',
             'category_id' => 'nullable|exists:categories,id',
+            'published_at' => 'nullable|date',
             'status' => 'required|in:draft,published',
             'featured_image' => 'nullable|url',
             'seo_title' => 'nullable|max:255',
@@ -164,7 +165,9 @@ class AdminController extends Controller
 
         $data['user_id'] = auth()->id();
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['title']);
-        if ($request->status === 'published') {
+        if ($request->filled('published_at')) {
+            $data['published_at'] = $request->published_at;
+        } elseif ($request->status === 'published') {
             $data['published_at'] = now();
         }
 
@@ -191,6 +194,7 @@ class AdminController extends Controller
             'content' => 'required',
             'excerpt' => 'nullable',
             'category_id' => 'nullable|exists:categories,id',
+            'published_at' => 'nullable|date',
             'status' => 'required|in:draft,published',
             'featured_image' => 'nullable|url',
             'seo_title' => 'nullable|max:255',
@@ -199,8 +203,14 @@ class AdminController extends Controller
         ]);
 
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['title']);
-        if ($request->status === 'published' && !$post->published_at) {
+        if ($request->filled('published_at')) {
+            $data['published_at'] = $request->published_at;
+        } elseif ($request->status === 'published' && !$post->published_at) {
             $data['published_at'] = now();
+        }
+
+        if ($request->status === 'draft') {
+            $data['published_at'] = null;
         }
 
         $post->update($data);

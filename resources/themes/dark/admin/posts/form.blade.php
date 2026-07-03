@@ -48,6 +48,12 @@
                         <option value="published" {{ old('status', $post->status ?? '') == 'published' ? 'selected' : '' }}>Published</option>
                     </select>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-200 mb-1.5">Publish Date</label>
+                    <input type="datetime-local" name="published_at" value="{{ old('published_at', isset($post) && $post->published_at ? $post->published_at->format('Y-m-d\TH:i') : '') }}"
+                           class="w-full border border-slate-700 rounded-xl px-4 py-2.5 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-shadow bg-slate-800 text-slate-100">
+                    @error('published_at')<p class="text-red-500 text-xs mt-1.5">{{ $message }}</p>@enderror
+                </div>
             </div>
         </div>
 
