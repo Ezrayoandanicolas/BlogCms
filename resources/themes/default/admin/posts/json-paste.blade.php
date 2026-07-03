@@ -2,23 +2,77 @@
     <details class="group">
         <summary class="font-semibold text-gray-800 mb-2 cursor-pointer flex items-center gap-2">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-            Paste JSON
+            AI Tools
         </summary>
-        <div class="mt-3 space-y-3">
-            <textarea id="json-input" rows="6" placeholder='{"title": "...", "content": "<h2>...", "excerpt": "...", "status": "published", "category_id": 1}'
-                class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"></textarea>
+        <div class="mt-3 space-y-4">
+            @if($siteTopic ?? false)
+            <div class="bg-gray-50 rounded-xl p-4">
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Niche Topic</p>
+                <p class="text-sm font-medium text-gray-800">{{ $siteTopic }}</p>
+            </div>
+            @endif
+
+            <div>
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1.5">AI Prompt — copy ke ChatGPT/Claude</p>
+                <textarea id="ai-prompt" rows="8" readonly
+                    class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow select-all">Buat artikel blog dalam bahasa Indonesia tentang **{{ $siteTopic ?? 'topik yang kamu pilih' }}**.
+
+Kembalikan JSON SAJA (tanpa markdown, tanpa penjelasan):
+{
+  "title": "Judul click-worthy",
+  "content": "<h2>Sub judul 1</h2><p>paragraf...</p><h2>Sub judul 2</h2><p>paragraf...</p>",
+  "excerpt": "Ringkasan 2-3 kalimat",
+  "status": "published",
+  "category_id": 1,
+  "tags": ["tag1", "tag2"],
+  "seo_title": "SEO title",
+  "seo_description": "Meta description",
+  "seo_keywords": "kata kunci"
+}
+
+Aturan:
+- Konten minimal 500 kata, struktur HTML rapi dengan &lt;h2&gt; dan &lt;p&gt;
+- Bahasa Indonesia natural, informatif
+- Kategori dan tags relevan dengan niche
+- Jangan gunakan judul generik atau clickbait</textarea>
+            </div>
+
             <div class="flex items-center gap-2">
-                <button type="button" onclick="applyJson()" class="inline-flex items-center gap-1.5 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-900 transition-colors">
-                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                    Apply JSON
+                <button type="button" onclick="copyPrompt()" class="inline-flex items-center gap-1.5 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-900 transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    Copy Prompt
                 </button>
-                <span id="json-status" class="text-xs text-gray-400"></span>
+                <span id="copy-status" class="text-xs text-gray-400"></span>
+            </div>
+
+            <hr class="border-gray-200">
+
+            <div>
+                <p class="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1.5">Paste JSON hasil AI di sini</p>
+                <textarea id="json-input" rows="5" placeholder='{"title": "...", "content": "<h2>...", ...}'
+                    class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"></textarea>
+                <div class="flex items-center gap-2 mt-2">
+                    <button type="button" onclick="applyJson()" class="inline-flex items-center gap-1.5 bg-gray-800 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-900 transition-colors">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                        Apply JSON
+                    </button>
+                    <span id="json-status" class="text-xs text-gray-400"></span>
+                </div>
             </div>
         </div>
     </details>
 </div>
 
 <script>
+function copyPrompt() {
+    const el = document.getElementById('ai-prompt');
+    el.select();
+    navigator.clipboard.writeText(el.value).then(() => {
+        document.getElementById('copy-status').textContent = '✅ Copied!';
+        document.getElementById('copy-status').className = 'text-xs text-green-600';
+    });
+}
+
 function applyJson() {
     const raw = document.getElementById('json-input').value.trim();
     const status = document.getElementById('json-status');

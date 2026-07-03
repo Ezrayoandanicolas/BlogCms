@@ -8,12 +8,9 @@
             <h1 class="text-xl md:text-2xl font-bold text-gray-900">Media Library</h1>
             <p class="text-sm text-gray-500 mt-0.5">Manage uploaded images</p>
         </div>
-        <label class="inline-flex items-center gap-2 bg-teal-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors shadow-sm cursor-pointer">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-            Upload Image
-            <input type="file" id="fileInput" accept="image/*" class="hidden">
-        </label>
     </div>
+
+    @include('theme::default.admin.media-uploader')
 
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4" id="mediaGrid">
         @forelse($media as $m)
@@ -43,28 +40,8 @@
 
 @push('scripts')
 <script>
-    document.getElementById('fileInput')?.addEventListener('change', async function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const form = new FormData();
-        form.append('file', file);
-        try {
-            const resp = await fetch('{{ url("/admin/media/upload") }}', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: form,
-            });
-            if (resp.ok) location.reload();
-            else alert('Upload failed');
-        } catch (err) {
-            alert('Upload failed: ' + err.message);
-        }
-    });
-
     function copyUrl(url) {
-        navigator.clipboard.writeText(url).then(() => {
-            alert('URL copied!');
-        });
+        navigator.clipboard.writeText(url).then(() => { alert('URL copied!'); });
     }
 </script>
 @endpush

@@ -143,7 +143,8 @@ class AdminController extends Controller
     {
         $categories = Category::all();
         $tags = Tag::all();
-        return admin_view('posts.form', compact('categories', 'tags'));
+        $siteTopic = Setting::withoutTenant()->where('key', 'site_topic')->first()?->value ?? '';
+        return admin_view('posts.form', compact('categories', 'tags', 'siteTopic'));
     }
 
     public function postStore(Request $request)
@@ -177,7 +178,8 @@ class AdminController extends Controller
         $post = Post::findOrFail($id);
         $categories = Category::all();
         $tags = Tag::all();
-        return admin_view('posts.form', compact('post', 'categories', 'tags'));
+        $siteTopic = Setting::withoutTenant()->where('key', 'site_topic')->first()?->value ?? '';
+        return admin_view('posts.form', compact('post', 'categories', 'tags', 'siteTopic'));
     }
 
     public function postUpdate(Request $request, int $id)
