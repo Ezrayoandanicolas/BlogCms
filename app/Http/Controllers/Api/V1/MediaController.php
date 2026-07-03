@@ -45,32 +45,34 @@ class MediaController extends Controller
         $path = $request->file('file')->store($domainFolder, 'public');
         $fullPath = Storage::disk('public')->path($path);
 
-        // Konversi ke WebP
-        $webpPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
-        $webpFullPath = Storage::disk('public')->path($webpPath);
-        $imageInfo = @getimagesize($fullPath);
-
-        if ($imageInfo && in_array($imageInfo[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF])) {
-            $img = match ($imageInfo[2]) {
-                IMAGETYPE_JPEG => @imagecreatefromjpeg($fullPath),
-                IMAGETYPE_PNG => @imagecreatefrompng($fullPath),
-                IMAGETYPE_GIF => @imagecreatefromgif($fullPath),
-            };
-            if ($img) {
-                if ($imageInfo[2] === IMAGETYPE_PNG) {
-                    imagealphablending($img, false);
-                    imagesavealpha($img, true);
+        try {
+            $webpPath = preg_replace('/\.(jpg|jpeg|png|gif)$/i', '.webp', $path);
+            $webpFullPath = Storage::disk('public')->path($webpPath);
+            $imageInfo = @getimagesize($fullPath);
+            if ($imageInfo && in_array($imageInfo[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_GIF])) {
+                $img = match ($imageInfo[2]) {
+                    IMAGETYPE_JPEG => @imagecreatefromjpeg($fullPath),
+                    IMAGETYPE_PNG => @imagecreatefrompng($fullPath),
+                    IMAGETYPE_GIF => @imagecreatefromgif($fullPath),
+                };
+                if ($img) {
+                    if ($imageInfo[2] === IMAGETYPE_PNG) {
+                        imagealphablending($img, false);
+                        imagesavealpha($img, true);
+                    }
+                    @imagewebp($img, $webpFullPath, 80);
+                    imagedestroy($img);
                 }
-                @imagewebp($img, $webpFullPath, 80);
-                imagedestroy($img);
             }
+        } catch (\Throwable $e) {
+            // GD error, skip WebP conversion
         }
 
         $media = Media::create([
             'domain_id' => $domainId,
             'filename' => $request->file('file')->getClientOriginalName(),
             'path' => $path,
-            'webp_path' => file_exists($webpFullPath) ? $webpPath : null,
+            'webp_path' => (isset($webpFullPath) && file_exists($webpFullPath)) ? ($webpPath ?? null) : null,
             'mime_type' => $request->file('file')->getMimeType(),
             'size' => $request->file('file')->getSize(),
             'user_id' => $request->user()?->id,
