@@ -278,9 +278,15 @@ class AdminController extends Controller
             'slug' => 'nullable|max:255|unique:categories,slug',
             'description' => 'nullable',
         ]);
+
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['name']);
-        Category::create($data);
-        return back()->with('success', 'Category created.');
+        $category = Category::create($data);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json(['id' => $category->id, 'name' => $category->name]);
+        }
+
+        return redirect('/admin/categories')->with('success', "Category '{$category->name}' created");
     }
 
     public function categoryUpdate(Request $request, int $id)

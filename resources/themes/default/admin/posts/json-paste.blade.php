@@ -18,12 +18,12 @@
                     class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow select-all">Buat artikel blog dalam bahasa Indonesia tentang **{{ $siteTopic ?? 'topik yang kamu pilih' }}**.
 
 Kembalikan JSON SAJA (tanpa markdown, tanpa penjelasan):
-{
+            {
   "title": "Judul click-worthy",
   "content": "<h2>Sub judul 1</h2><p>paragraf...</p><h2>Sub judul 2</h2><p>paragraf...</p>",
   "excerpt": "Ringkasan 2-3 kalimat",
   "status": "published",
-  "category_id": 1,
+  "category_name": "nama kategori",
   "tags": ["tag1", "tag2"],
   "seo_title": "SEO title",
   "seo_description": "Meta description",
@@ -88,25 +88,54 @@ function applyJson() {
     }
     if (typeof data !== 'object' || data === null) { status.textContent = 'JSON harus object.'; status.className = 'text-xs text-red-500'; return; }
 
-    const fields = ['title','slug','content','excerpt','featured_image','seo_title','seo_description','seo_keywords'];
-    let filled = 0;
-    for (const key of fields) {
-        if (data[key] !== undefined) {
-            const el = document.querySelector(`[name="${key}"]`);
-            if (el) { el.value = data[key]; filled++; }
+    async function applyAll() {
+        const fields = ['title','slug','content','excerpt','featured_image','seo_title','seo_description','seo_keywords'];
+        let filled = 0;
+        for (const key of fields) {
+            if (data[key] !== undefined) {
+                const el = document.querySelector(`[name="${key}"]`);
+                if (el) { el.value = data[key]; filled++; }
+            }
         }
-    }
 
-    if (data.status !== undefined) {
-        const el = document.querySelector('select[name="status"]');
-        if (el && [...el.options].some(o => o.value === data.status)) { el.value = data.status; filled++; }
-    }
-    if (data.category_id !== undefined) {
-        const el = document.querySelector('select[name="category_id"]');
-        if (el && [...el.options].some(o => String(o.value) === String(data.category_id))) { el.value = data.category_id; filled++; }
-    }
+        if (data.status !== undefined) {
+            const el = document.querySelector('select[name="status"]');
+            if (el && [...el.options].some(o => o.value === data.status)) { el.value = data.status; filled++; }
+        }
 
-    status.textContent = `✅ ${filled} field terisi.`;
-    status.className = 'text-xs text-green-600';
+        if (data.category_id !== undefined) {
+            const el = document.querySelector('select[name="category_id"]');
+            if (el && [...el.options].some(o => String(o.value) === String(data.category_id))) { el.value = data.category_id; filled++; }
+        } else if (data.category_name) {
+            const el = document.querySelector('select[name="category_id"]');
+            if (el) {
+                const match = [...el.options].find(o => o.text.toLowerCase() === data.category_name.toLowerCase());
+                if (match) { el.value = match.value; filled++; }
+                else {
+                    status.textContent = '⏳ Membuat kategori...';
+                    status.className = 'text-xs text-blue-500';
+                    try {
+                        const resp = await fetch('{{ url("/admin/categories") }}', {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+                            body: new URLSearchParams({ name: data.category_name }),
+                        });
+                        if (resp.status === 302) { location.reload(); return; }
+                        const json = await resp.json();
+                        if (resp.ok && json.id) { el.value = json.id; filled++; }
+                        else { throw new Error(json.message || 'Gagal'); }
+                    } catch (e) {
+                        status.textContent = '❌ ' + e.message;
+                        status.className = 'text-xs text-red-500';
+                        return;
+                    }
+                }
+            }
+        }
+
+        status.textContent = `✅ ${filled} field terisi.`;
+        status.className = 'text-xs text-green-600';
+    }
+    applyAll();
 }
 </script>
