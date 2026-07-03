@@ -8,7 +8,8 @@
 </div>
 
 <style>
-    #dropzone.dragover { border-color: #3b82f6; background: #eff6ff; }
+    #dropzone { transition: all .25s; }
+    #dropzone.dragover { border-color: #3b82f6; background: #eff6ff; transform: scale(1.01); box-shadow: 0 0 0 4px rgba(59,130,246,0.12); }
     #dropzone.uploading { pointer-events: none; opacity: 0.6; }
     .progress-bar { height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; }
     .progress-bar div { height: 100%; background: #3b82f6; width: 0%; transition: width .3s; }
@@ -16,9 +17,14 @@
 <script>
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
+    let dragCounter = 0;
 
-    ['dragenter','dragover'].forEach(e => { dropzone.addEventListener(e, ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; dropzone.classList.add('dragover'); }); });
-    ['dragleave','drop'].forEach(e => { dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }); });
+    dropzone.addEventListener('dragenter', ev => { ev.preventDefault(); dragCounter++; if (dragCounter === 1) dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+    dropzone.addEventListener('dragleave', ev => { ev.preventDefault(); dragCounter--; if (dragCounter === 0) dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', ev => { ev.preventDefault(); dragCounter = 0; dropzone.classList.remove('dragover'); uploadFiles(ev.dataTransfer.files); });
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => { if (fileInput.files.length) uploadFiles(fileInput.files); });
 
     dropzone.addEventListener('drop', ev => uploadFiles(ev.dataTransfer.files));
     dropzone.addEventListener('click', () => fileInput.click());

@@ -7,18 +7,38 @@
     <div id="content-upload-progress" class="hidden mt-3"></div>
 </div>
 
-<style>
-    #content-dropzone.dragover { border-color: #3b82f6; background: #eff6ff; }
-    #content-dropzone.uploading { pointer-events: none; opacity: 0.6; }
-</style>
+:root { --dz-primary: #3b82f6; --dz-bg: #eff6ff; }
+#content-dropzone {
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .25s;
+    position: relative;
+}
+#content-dropzone:hover { border-color: var(--dz-primary); background: var(--dz-bg); }
+#content-dropzone.dragover {
+    border-color: var(--dz-primary);
+    background: var(--dz-bg);
+    transform: scale(1.02);
+    box-shadow: 0 0 0 4px rgba(59,130,246,0.15), 0 4px 12px rgba(59,130,246,0.1);
+}
+#content-dropzone.dragover svg { color: var(--dz-primary); transform: scale(1.1); }
+#content-dropzone.dragover p { color: #1e40af; }
+#content-dropzone svg { transition: transform .25s; }
+#content-dropzone.uploading { pointer-events: none; opacity: .6; }
 <script>
     const dropzone = document.getElementById('content-dropzone');
     const input = document.getElementById('imgUpload');
+    let dragCounter = 0;
 
-    ['dragenter','dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; dropzone.classList.add('dragover'); }));
-    ['dragleave','drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
+    dropzone.addEventListener('dragenter', ev => { ev.preventDefault(); dragCounter++; if (dragCounter === 1) dropzone.classList.add('dragover'); });
+    dropzone.addEventListener('dragover', ev => { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+    dropzone.addEventListener('dragleave', ev => { ev.preventDefault(); dragCounter--; if (dragCounter === 0) dropzone.classList.remove('dragover'); });
+    dropzone.addEventListener('drop', ev => { ev.preventDefault(); dragCounter = 0; dropzone.classList.remove('dragover'); if (ev.dataTransfer.files[0]) uploadImage(ev.dataTransfer.files[0]); });
 
-    dropzone.addEventListener('drop', ev => { if (ev.dataTransfer.files[0]) uploadImage(ev.dataTransfer.files[0]); });
     dropzone.addEventListener('click', () => input.click());
     input.addEventListener('change', () => { if (input.files[0]) uploadImage(input.files[0]); input.value = ''; });
 
