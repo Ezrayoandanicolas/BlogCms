@@ -74,17 +74,25 @@ function copyPrompt() {
 }
 
 function applyJson() {
-    const raw = document.getElementById('json-input').value.trim();
+    const raw = document.getElementById('json-input').value;
     const status = document.getElementById('json-status');
-    if (!raw) { status.textContent = 'Paste JSON dulu.'; status.className = 'text-xs text-red-500'; return; }
+    if (!raw.trim()) { status.textContent = 'Paste JSON dulu.'; status.className = 'text-xs text-red-500'; return; }
     let data;
     try {
-        const sanitized = raw.replace(/\r?\n/g, '\\n').replace(/\t/g, ' ');
-        data = JSON.parse(sanitized);
-    } catch (e) {
-        status.textContent = 'JSON tidak valid: ' + e.message;
-        status.className = 'text-xs text-red-500';
-        return;
+        // coba parse langsung dulu (AI biasanya output valid JSON)
+        data = JSON.parse(raw.trim().replace(/^\ufeff/, ''));
+    } catch (e1) {
+        try {
+            // gagal: coba extract {...} dari teks, lalu minify (buang newline/tab)
+            const start = raw.indexOf('{'), end = raw.lastIndexOf('}');
+            const jsonStr = start !== -1 && end !== -1 ? raw.substring(start, end + 1) : raw;
+            const minified = jsonStr.replace(/\r?\n/g, ' ').replace(/\t/g, ' ').replace(/\s+/g, ' ');
+            data = JSON.parse(minified);
+        } catch (e2) {
+            status.textContent = 'JSON tidak valid: ' + e1.message;
+            status.className = 'text-xs text-red-500';
+            return;
+        }
     }
     if (typeof data !== 'object' || data === null) { status.textContent = 'JSON harus object.'; status.className = 'text-xs text-red-500'; return; }
 
