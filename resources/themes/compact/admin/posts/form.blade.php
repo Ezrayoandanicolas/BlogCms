@@ -55,6 +55,7 @@
             <h3 class="font-semibold text-gray-800 mb-2">Content</h3>
             <div class="mb-2">
                 <label class="block text-sm font-medium text-gray-700 mb-1.5">Content *</label>
+                @include('theme::default.admin.posts.image-upload')
                 <textarea name="content" rows="15" required
                           class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-mono focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-none transition-shadow">{{ old('content', $post->content ?? '') }}</textarea>
                 @error('content')<p class="text-red-500 text-xs mt-1.5">{{ $message }}</p>@enderror
