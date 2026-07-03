@@ -7,6 +7,7 @@
     <div id="content-upload-progress" class="hidden mt-3"></div>
 </div>
 
+<style>
 :root { --dz-primary: #3b82f6; --dz-bg: #eff6ff; }
 #content-dropzone {
     border: 2px dashed #d1d5db;
@@ -29,6 +30,7 @@
 #content-dropzone.dragover p { color: #1e40af; }
 #content-dropzone svg { transition: transform .25s; }
 #content-dropzone.uploading { pointer-events: none; opacity: .6; }
+</style>
 <script>
     const dropzone = document.getElementById('content-dropzone');
     const input = document.getElementById('imgUpload');
