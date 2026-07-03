@@ -12,6 +12,8 @@
         @csrf
         @if(isset($post)) @method('PUT') @endif
 
+        @include('theme::default.admin.posts.json-paste')
+
         <div class="bg-slate-800 rounded-2xl shadow-none-sm border border-slate-700 p-6 mb-6">
             <h3 class="font-semibold text-slate-100 mb-4">Basic Info</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-4">
