@@ -42,7 +42,7 @@
             const form = new FormData();
             form.append('file', file);
             try {
-                const resp = await fetch('{{ url("/admin/media/upload") }}', {
+                const resp = await fetch('/admin/media/upload', {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
                     body: form,

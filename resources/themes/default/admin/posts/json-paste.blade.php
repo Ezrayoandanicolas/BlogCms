@@ -123,7 +123,7 @@ function applyJson() {
                     status.textContent = '⏳ Membuat kategori...';
                     status.className = 'text-xs text-blue-500';
                     try {
-                        const resp = await fetch('{{ url("/admin/categories") }}', {
+                        const resp = await fetch('/admin/categories', {
                             method: 'POST',
                             headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
                             body: new URLSearchParams({ name: data.category_name }),
