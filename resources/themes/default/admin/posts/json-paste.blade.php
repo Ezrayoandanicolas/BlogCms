@@ -78,7 +78,14 @@ function applyJson() {
     const status = document.getElementById('json-status');
     if (!raw) { status.textContent = 'Paste JSON dulu.'; status.className = 'text-xs text-red-500'; return; }
     let data;
-    try { data = JSON.parse(raw); } catch (e) { status.textContent = 'JSON tidak valid: ' + e.message; status.className = 'text-xs text-red-500'; return; }
+    try {
+        const sanitized = raw.replace(/\r?\n/g, '\\n').replace(/\t/g, ' ');
+        data = JSON.parse(sanitized);
+    } catch (e) {
+        status.textContent = 'JSON tidak valid: ' + e.message;
+        status.className = 'text-xs text-red-500';
+        return;
+    }
     if (typeof data !== 'object' || data === null) { status.textContent = 'JSON harus object.'; status.className = 'text-xs text-red-500'; return; }
 
     const fields = ['title','slug','content','excerpt','featured_image','seo_title','seo_description','seo_keywords'];
