@@ -155,7 +155,7 @@ class AdminController extends Controller
             'content' => 'required',
             'excerpt' => 'nullable',
             'category_id' => 'nullable|exists:categories,id',
-            'published_at' => 'nullable|date',
+            'published_at' => 'nullable|date_format:Y-m-d',
             'status' => 'required|in:draft,published',
             'featured_image' => 'nullable|url',
             'seo_title' => 'nullable|max:255',
@@ -166,7 +166,7 @@ class AdminController extends Controller
         $data['user_id'] = auth()->id();
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['title']);
         if ($request->filled('published_at')) {
-            $data['published_at'] = $request->published_at;
+            $data['published_at'] = $request->published_at . ' ' . now()->format('H:i:s');
         } elseif ($request->status === 'published') {
             $data['published_at'] = now();
         }
@@ -194,7 +194,7 @@ class AdminController extends Controller
             'content' => 'required',
             'excerpt' => 'nullable',
             'category_id' => 'nullable|exists:categories,id',
-            'published_at' => 'nullable|date',
+            'published_at' => 'nullable|date_format:Y-m-d',
             'status' => 'required|in:draft,published',
             'featured_image' => 'nullable|url',
             'seo_title' => 'nullable|max:255',
@@ -204,7 +204,7 @@ class AdminController extends Controller
 
         $data['slug'] = $data['slug'] ?? \Illuminate\Support\Str::slug($data['title']);
         if ($request->filled('published_at')) {
-            $data['published_at'] = $request->published_at;
+            $data['published_at'] = $request->published_at . ' ' . now()->format('H:i:s');
         } elseif ($request->status === 'published' && !$post->published_at) {
             $data['published_at'] = now();
         }
