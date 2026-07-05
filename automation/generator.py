@@ -9,9 +9,7 @@ from config import Config
 from image_generator import generate_image_from_prompt
 from openrouter_client import OpenRouterClient
 from prompt_templates import (
-    OUTLINE_PROMPT,
-    CONTENT_PROMPT,
-    TAGS_PROMPT,
+    FULL_ARTICLE_PROMPT,
     IMAGE_PROMPT_SYSTEM,
     TOPIC_EXTRACTION_PROMPT,
 )
@@ -229,44 +227,34 @@ class ArticleGenerator:
         print(f"📝 Niche: {active_topic}")
         print(f"{'='*60}")
 
-        # === LANGKAH 1: Judul + Outline ===
-        print("\n1️⃣  Generate judul & outline...")
-        user_msg = f"Buat outline artikel tentang: {active_topic}"
+        # === SINGLE LLM CALL: judul + konten + tags + image sekaligus ===
+        print("\n🪄  Generate artikel (1x request)...")
+        used_str = ""
         if used_titles:
             used_str = "\n".join(f"- \"{t}\"" for t in used_titles[-5:])
-            user_msg += f"\n\nJudul berikut SUDAH DIPAKAI, jangan buat judul yang mirip:\n{used_str}"
-        outline_data = self.llm.generate_json(
-            messages=[
-                {"role": "user", "content": user_msg}
-            ],
-            system=self._fmt(OUTLINE_PROMPT),
+        else:
+            used_str = "Tidak ada"
+
+        article_data = self.llm.generate_json(
+            messages=[{"role": "user", "content": f"Buat artikel blog tentang: {active_topic}"}],
+            system=self._fmt(FULL_ARTICLE_PROMPT).replace("{used_titles}", used_str),
             temperature=0.85,
         )
-        title = outline_data.get("title", "Untitled")
-        category_name = outline_data.get("category", "Umum")
-        outline = outline_data.get("outline", [])
+
+        title = article_data.get("title", "Untitled")
+        content = article_data.get("content", "")
+        excerpt = article_data.get("excerpt", "")
+        category_name = article_data.get("category_name", "Umum")
+        tags = article_data.get("tags", [])
+        seo_title = article_data.get("seo_title", title)
+        seo_description = article_data.get("seo_description", excerpt)
+        seo_keywords = article_data.get("seo_keywords", "")
+        image_prompt = image_prompt_override or article_data.get("image_prompt", "")
+
         print(f"   Judul: {title}")
         print(f"   Kategori: {category_name}")
-        print(f"   Sub judul: {len(outline)} bagian")
-
-        # === LANGKAH 2: Konten ===
-        print("\n2️⃣  Generate konten berdasarkan judul & outline...")
-        outline_text = "\n".join(
-            f"- {s.get('subtitle', '')}: {'; '.join(self._extract_points(s.get('points', [])))}"
-            for s in outline
-        )
-        content_data = self.llm.generate_json(
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Judul: {title}\n\nOutline:\n{outline_text}",
-                }
-            ],
-            system=self._fmt(CONTENT_PROMPT),
-            temperature=0.7,
-        )
-        content = content_data.get("content", "")
-        excerpt = content_data.get("excerpt", "")
+        print(f"   Tags: {', '.join(tags[:5])}")
+        print(f"   SEO: {seo_title[:50]}...")
 
         content = self._ensure_html_format(content)
 
@@ -275,65 +263,28 @@ class ArticleGenerator:
             stripped = re.sub(r'<[^>]+>', '', content).strip()
             excerpt = ' '.join(stripped.split()[:30]) + '...'
 
-        # Jika konten terlalu pendek, regenerate dengan perintah lebih tegas
-        if len(content.split()) < 300:
-            print(f"   ⚠️ Konten terlalu pendek ({len(content.split())} kata), regenerate...")
-            content_data = self.llm.generate_json(
+        # Retry jika konten terlalu pendek
+        word_count = len(content.split())
+        print(f"   📊 Panjang konten: ~{word_count} kata")
+        if word_count < 300:
+            print(f"   ⚠️ Konten terlalu pendek ({word_count} kata), minta LLM tulis ulang...")
+            article_data = self.llm.generate_json(
                 messages=[
-                    {
-                        "role": "user",
-                        "content": f"Judul: {title}\n\nOutline:\n{outline_text}",
-                    },
-                    {
-                        "role": "assistant",
-                        "content": content,
-                    },
-                    {
-                        "role": "user",
-                        "content": "Konten di atas terlalu pendek. TULIS ULANG dengan minimal 800 kata. Kembangkan setiap poin outline menjadi 2-3 paragraf. Berikan contoh dan detail."
-                    }
+                    {"role": "user", "content": f"Buat artikel blog tentang: {active_topic}"},
+                    {"role": "assistant", "content": f"Title: {title}\n\n{content}"},
+                    {"role": "user", "content": "Konten terlalu pendek! TULIS ULANG dengan minimal 800 kata. Kembangkan setiap bagian dengan contoh konkret, data, dan analisis mendalam."}
                 ],
-                system=self._fmt(CONTENT_PROMPT),
+                system=self._fmt(FULL_ARTICLE_PROMPT).replace("{used_titles}", used_str),
                 temperature=0.8,
             )
-            content = content_data.get("content", content)
-            excerpt = content_data.get("excerpt", excerpt)
-
+            content = article_data.get("content", content)
+            excerpt = article_data.get("excerpt", excerpt)
             content = self._ensure_html_format(content)
 
-        print(f"   Panjang konten: {len(content.split())} kata ({len(content)} karakter)")
-
-        # === LANGKAH 3: Tags ===
-        print("\n3️⃣  Generate tags dari konten...")
-        tags_data = self.llm.generate_json(
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Judul: {title}\n\nKonten:\n{content[:1000]}...",
-                }
-            ],
-            system=self._fmt(TAGS_PROMPT),
-            temperature=0.3,
-        )
-        tags = tags_data.get("tags", [])
-        print(f"   Tags: {', '.join(tags)}")
-
-        # === LANGKAH 4: Image prompt ===
-        image_prompt = image_prompt_override
-        if not image_prompt:
-            print("\n4️⃣  Generate prompt gambar...")
-            image_prompt = self.llm.chat(
-                messages=[{"role": "user", "content": f"Judul artikel: {title}\n\nExcerpt: {excerpt}"}],
-                system=self._fmt(IMAGE_PROMPT_SYSTEM),
-                temperature=0.6,
-            )
-            image_prompt = image_prompt.strip().strip('"').strip("'")
-        print(f"   Image prompt: {image_prompt[:80]}...")
+        print(f"   ✅ Final: ~{len(content.split())} kata")
 
         # === PUBLISH ===
         print("\n📤 Publishing ke BlogCMS...")
-
-        # Cari/buat kategori
         print(f"   📂 Kategori: {category_name}")
         categories = self.cms.get_categories()
         existing = [c for c in categories if c["name"].lower() == category_name.lower()]
@@ -343,20 +294,6 @@ class ArticleGenerator:
             cat = self.cms.create_category(category_name)
             category_id = cat["id"]
 
-        # === PUBLISH ===
-        print("\n📤 Publishing ke BlogCMS...")
-
-        # Cari/buat kategori
-        print(f"   📂 Kategori: {category_name}")
-        categories = self.cms.get_categories()
-        existing = [c for c in categories if c["name"].lower() == category_name.lower()]
-        if existing:
-            category_id = existing[0]["id"]
-        else:
-            cat = self.cms.create_category(category_name)
-            category_id = cat["id"]
-
-        # Publish (tanpa gambar dulu)
         pub_str = f" → {published_at}" if published_at else ""
         print(f"   📝 Publish artikel{pub_str}...")
 
@@ -381,6 +318,9 @@ class ArticleGenerator:
                 status="published",
                 tags=tags,
                 published_at=published_at,
+                seo_title=seo_title,
+                seo_description=seo_description,
+                seo_keywords=seo_keywords,
             )
             print(f"\n✅ Artikel dipublikasikan!")
             print(f"   ID: {post['id']} - {post['title']}")

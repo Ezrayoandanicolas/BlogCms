@@ -75,7 +75,8 @@ class BlogCMSClient:
 
     def create_post(self, title: str, content: str, excerpt: str = "", category_id: int = None,
                     featured_image: str = "", status: str = "published", tags: list[str] = None,
-                    published_at: str = "") -> dict:
+                    published_at: str = "", seo_title: str = "", seo_description: str = "",
+                    seo_keywords: str = "") -> dict:
         data = {"title": title, "content": content, "excerpt": excerpt, "status": status}
         if category_id:
             data["category_id"] = category_id
@@ -85,6 +86,12 @@ class BlogCMSClient:
             data["tags"] = tags
         if published_at:
             data["published_at"] = published_at
+        if seo_title:
+            data["seo_title"] = seo_title
+        if seo_description:
+            data["seo_description"] = seo_description
+        if seo_keywords:
+            data["seo_keywords"] = seo_keywords
         resp = self._request("POST", "/api/v1/posts", json=data)
         return resp.json()["data"]
 
