@@ -21,7 +21,7 @@ class ArticleGenerator:
         self._retry_file = os.path.join(os.path.dirname(__file__), "retry_queue.json")
         self._retry_queue = self._load_retry_queue()
         if Config.OPENROUTER_API_KEY:
-            self.llm = OpenRouterClient(Config.OPENROUTER_API_KEY, Config.OPENROUTER_MODEL, Config.OPENROUTER_IMAGE_MODEL)
+            self.llm = OpenRouterClient(Config.OPENROUTER_API_KEY, Config.OPENROUTER_MODEL, Config.OPENROUTER_IMAGE_MODEL, Config.OPENROUTER_FALLBACK_MODELS)
         else:
             from ollama_client import OllamaClient
             self.llm = OllamaClient(Config.OLLAMA_URL, Config.OLLAMA_MODEL)

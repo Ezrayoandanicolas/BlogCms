@@ -10,11 +10,12 @@ from PIL import Image
 
 
 class OpenRouterClient:
-    def __init__(self, api_key: str, model: str, image_model: str = ""):
+    def __init__(self, api_key: str, model: str, image_model: str = "", fallback_models: list[str] = None):
         self.base_url = "https://openrouter.ai/api/v1/chat/completions"
         self.api_key = api_key
         self.model = model
         self.image_model = image_model or "black-forest-labs/flux-schnell"
+        self.fallback_models = fallback_models or []
         self.timeout = 120
 
     def _headers(self) -> dict:
@@ -118,6 +119,43 @@ class OpenRouterClient:
                 print(f"   OpenRouter fallback error: {e}. Retry {wait}s...")
                 time.sleep(wait)
 
+        # Coba fallback models
+        for fb_model in self.fallback_models:
+            print(f"   ⏫ Fallback ke model: {fb_model}")
+            result = self._generate_json_with_model(fb_model, full_messages, temperature)
+            if result:
+                return result
+
+        return {}
+
+    def _generate_json_with_model(self, model: str, full_messages: list, temperature: float) -> dict:
+        """Try generate_json with a specific model (used internally for fallbacks)."""
+        for attempt in range(3):
+            try:
+                resp = requests.post(
+                    self.base_url,
+                    headers=self._headers(),
+                    json={
+                        "model": model,
+                        "messages": full_messages,
+                        "temperature": temperature,
+                    },
+                    timeout=self.timeout,
+                )
+                resp.raise_for_status()
+                content = resp.json()["choices"][0]["message"]["content"]
+                cleaned = content.strip()
+                if cleaned.startswith("```"):
+                    cleaned = cleaned.split("\n", 1)[-1]
+                    cleaned = cleaned.rsplit("```", 1)[0]
+                    cleaned = cleaned.strip()
+                return json.loads(cleaned)
+            except (json.JSONDecodeError, requests.RequestException, KeyError) as e:
+                if attempt == 2:
+                    break
+                wait = self._wait_time(attempt, getattr(e, 'response', None))
+                print(f"   OpenRouter fallback model '{model}' error: {e}. Retry {wait}s...")
+                time.sleep(wait)
         return {}
 
     def generate_image(self, prompt: str, output_dir: str = "output") -> str | None:
