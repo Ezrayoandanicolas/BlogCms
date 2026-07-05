@@ -17,9 +17,9 @@ class Config:
     OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
     OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+    OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-ultra-550b-a55b:free")
     OPENROUTER_IMAGE_MODEL = os.getenv("OPENROUTER_IMAGE_MODEL", "black-forest-labs/flux-schnell")
-    OPENROUTER_FALLBACK_MODELS = list(filter(None, os.getenv("OPENROUTER_FALLBACK_MODELS", "google/gemma-3-27b-it:free,qwen/qwen3-8b:free,google/gemma-4-31b-it:free,nvidia/nemotron-3-ultra-550b-a55b:free").split(",")))
+    OPENROUTER_FALLBACK_MODELS = list(filter(None, os.getenv("OPENROUTER_FALLBACK_MODELS", "google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free,google/gemma-3-27b-it:free,openrouter/auto").split(",")))
 
     SD_WEBUI_URL = os.getenv("SD_WEBUI_URL", "http://127.0.0.1:7860")
     SD_MODEL = os.getenv("SD_MODEL", "realisticVisionV51_v51VAE.safetensors")
