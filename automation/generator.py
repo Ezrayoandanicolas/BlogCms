@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timedelta
 
 from api_client import BlogCMSClient
@@ -504,6 +505,9 @@ class ArticleGenerator:
             if post.get("title"):
                 used_titles.append(post["title"])
             results.append(post)
+            if i < count - 1:
+                print("   ⏳ Delay 30 detik biar tidak kena rate limit...")
+                time.sleep(30)
 
         self._process_retry_queue()
 
@@ -623,6 +627,9 @@ class ArticleGenerator:
                 except Exception as e:
                     print(f"   ❌ Gagal generate artikel: {e}")
                     print(f"   ⏭️  Skip, lanjut ke artikel berikutnya...")
+                if i < need - 1:
+                    print("   ⏳ Delay 30 detik biar tidak kena rate limit...")
+                    time.sleep(30)
 
             print()
 

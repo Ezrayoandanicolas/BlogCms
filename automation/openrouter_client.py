@@ -23,13 +23,25 @@ class OpenRouterClient:
             "Content-Type": "application/json",
         }
 
+    @staticmethod
+    def _wait_time(attempt: int, resp=None) -> int:
+        if resp and resp.status_code == 429:
+            retry_after = resp.headers.get("Retry-After")
+            if retry_after:
+                try:
+                    return int(retry_after) + 1
+                except ValueError:
+                    pass
+            return [30, 60, 120, 300][min(attempt, 3)]
+        return [5, 10, 20][min(attempt, 2)]
+
     def chat(self, messages: list[dict], system: str = "", temperature: float = 0.7) -> str:
         full_messages = []
         if system:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
-        for attempt in range(3):
+        for attempt in range(5):
             try:
                 resp = requests.post(
                     self.base_url,
@@ -44,9 +56,9 @@ class OpenRouterClient:
                 resp.raise_for_status()
                 return resp.json()["choices"][0]["message"]["content"]
             except (requests.RequestException, json.JSONDecodeError, KeyError) as e:
-                if attempt == 2:
+                if attempt == 4:
                     raise
-                wait = (attempt + 1) * 5
+                wait = self._wait_time(attempt, getattr(e, 'response', None))
                 print(f"   OpenRouter chat error: {e}. Retry {wait}s...")
                 time.sleep(wait)
 
@@ -56,7 +68,7 @@ class OpenRouterClient:
             full_messages.append({"role": "system", "content": system})
         full_messages.extend(messages)
 
-        for attempt in range(3):
+        for attempt in range(5):
             try:
                 resp = requests.post(
                     self.base_url,
@@ -73,13 +85,13 @@ class OpenRouterClient:
                 content = resp.json()["choices"][0]["message"]["content"]
                 return json.loads(content)
             except (json.JSONDecodeError, requests.RequestException, KeyError) as e:
-                if attempt == 2:
+                if attempt == 4:
                     break
-                wait = (attempt + 1) * 5
+                wait = self._wait_time(attempt, getattr(e, 'response', None))
                 print(f"   OpenRouter JSON error: {e}. Retry {wait}s...")
                 time.sleep(wait)
 
-        for attempt in range(3):
+        for attempt in range(5):
             try:
                 resp = requests.post(
                     self.base_url,
@@ -100,9 +112,9 @@ class OpenRouterClient:
                     cleaned = cleaned.strip()
                 return json.loads(cleaned)
             except (json.JSONDecodeError, requests.RequestException, KeyError) as e:
-                if attempt == 2:
+                if attempt == 4:
                     break
-                wait = (attempt + 1) * 10
+                wait = self._wait_time(attempt, getattr(e, 'response', None)) * 2
                 print(f"   OpenRouter fallback error: {e}. Retry {wait}s...")
                 time.sleep(wait)
 
@@ -114,7 +126,7 @@ class OpenRouterClient:
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, f"{uuid.uuid4().hex}.jpg")
 
-        for attempt in range(3):
+        for attempt in range(5):
             try:
                 resp = requests.post(
                     self.base_url,
@@ -191,17 +203,18 @@ class OpenRouterClient:
                         print(f"   Failed to decode image data: {e}")
 
                 print(f"   OpenRouter image: no recognizable image data in response")
-                if attempt < 2:
-                    print(f"   Retry {attempt+2}/3...")
-                    time.sleep(3)
+                if attempt < 4:
+                    wait = [30, 60, 120, 300][min(attempt, 3)]
+                    print(f"   Retry {attempt+2}/5: wait {wait}s...")
+                    time.sleep(wait)
                     continue
                 return None
 
             except Exception as e:
-                if attempt == 2:
+                if attempt == 4:
                     print(f"   OpenRouter image error: {e}")
                     return None
-                wait = (attempt + 1) * 5
+                wait = self._wait_time(attempt)
                 print(f"   OpenRouter image error: {e}. Retry {wait}s...")
                 time.sleep(wait)
 
