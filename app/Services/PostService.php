@@ -53,6 +53,14 @@ class PostService extends BaseService
     {
         $data['slug'] = $data['slug'] ?? Str::slug($data['title']);
 
+        $slug = $data['slug'];
+        $counter = 1;
+        while (\App\Models\Post::withoutGlobalScopes()->where('slug', $slug)->exists()) {
+            $slug = $data['slug'] . '-' . $counter;
+            $counter++;
+        }
+        $data['slug'] = $slug;
+
         if (!isset($data['user_id'])) {
             $data['user_id'] = auth()->id();
         }
