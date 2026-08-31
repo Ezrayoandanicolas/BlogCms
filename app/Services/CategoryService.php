@@ -17,7 +17,7 @@ class CategoryService extends BaseService
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
         $domainId = config('app.domain_id', 0);
 
-        $existing = $this->model->withoutGlobalScopes()
+        $existing = \App\Models\Category::withoutGlobalScopes()
             ->where('name', $data['name'])
             ->where('domain_id', $domainId)
             ->first();
@@ -28,7 +28,7 @@ class CategoryService extends BaseService
 
         $slug = $data['slug'];
         $counter = 1;
-        while ($this->model->withoutGlobalScopes()->where('slug', $slug)->exists()) {
+        while (\App\Models\Category::withoutGlobalScopes()->where('slug', $slug)->exists()) {
             $slug = $data['slug'] . '-' . $counter;
             $counter++;
         }
