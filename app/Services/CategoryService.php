@@ -15,6 +15,25 @@ class CategoryService extends BaseService
     public function create(array $data): \App\Models\Category
     {
         $data['slug'] = $data['slug'] ?? Str::slug($data['name']);
+        $domainId = config('app.domain_id', 0);
+
+        $existing = $this->model->withoutGlobalScopes()
+            ->where('name', $data['name'])
+            ->where('domain_id', $domainId)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $slug = $data['slug'];
+        $counter = 1;
+        while ($this->model->withoutGlobalScopes()->where('slug', $slug)->exists()) {
+            $slug = $data['slug'] . '-' . $counter;
+            $counter++;
+        }
+        $data['slug'] = $slug;
+
         return $this->repository->create($data);
     }
 
