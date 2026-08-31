@@ -102,13 +102,19 @@ class PostService extends BaseService
                 return (int) $tag;
             }
             $slug = Str::slug($tag);
-            $existing = \App\Models\Tag::where('slug', $slug)->first();
+            $existing = \App\Models\Tag::withoutGlobalScopes()->where('slug', $slug)->first();
             if ($existing) {
                 return $existing->id;
             }
+            $finalSlug = $slug;
+            $counter = 1;
+            while (\App\Models\Tag::withoutGlobalScopes()->where('slug', $finalSlug)->exists()) {
+                $finalSlug = $slug . '-' . $counter;
+                $counter++;
+            }
             return $this->tagRepository->create([
                 'name' => $tag,
-                'slug' => $slug,
+                'slug' => $finalSlug,
             ])->id;
         }, $tags);
     }
