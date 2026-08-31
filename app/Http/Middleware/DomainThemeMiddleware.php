@@ -11,9 +11,14 @@ class DomainThemeMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        $domain = $request->getHttpHost();
+        $headerDomainId = $request->header('X-Domain-Id');
 
-        $mapping = DomainTheme::where('domain', $domain)->where('active', true)->first();
+        if ($headerDomainId && is_numeric($headerDomainId)) {
+            $mapping = DomainTheme::where('id', (int) $headerDomainId)->where('active', true)->first();
+        } else {
+            $domain = $request->getHttpHost();
+            $mapping = DomainTheme::where('domain', $domain)->where('active', true)->first();
+        }
 
         $themeSlug = $mapping ? $mapping->theme_slug : 'default';
 

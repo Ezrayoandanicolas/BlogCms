@@ -4,10 +4,11 @@ import requests
 
 
 class BlogCMSClient:
-    def __init__(self, base_url: str, email: str = "", password: str = "", token: str = "", api_key: str = ""):
+    def __init__(self, base_url: str, email: str = "", password: str = "", token: str = "", api_key: str = "", domain_id: int = 0):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.token = token
+        self.domain_id = domain_id
         if not self.token and email and password:
             self.token = self._login(email, password)
 
@@ -26,6 +27,8 @@ class BlogCMSClient:
             headers["Authorization"] = f"Bearer {self.token}"
         if self.api_key:
             headers["X-API-Key"] = self.api_key
+        if self.domain_id:
+            headers["X-Domain-Id"] = str(self.domain_id)
         return headers
 
     def _request(self, method: str, path: str, **kwargs) -> requests.Response:
@@ -45,6 +48,15 @@ class BlogCMSClient:
                         print(f"   ⚠️ {method.upper()} {path}: {resp.status_code}, retry {wait}s...")
                         time.sleep(wait)
                         continue
+                if resp.status_code == 422:
+                    try:
+                        err = resp.json()
+                        msg = err.get("message", "Validation error")
+                        errors = err.get("errors", {})
+                        detail = "; ".join(f"{k}: {v}" for k, v in errors.items())
+                        print(f"   ❌ 422 Validation: {msg} | {detail}")
+                    except Exception:
+                        print(f"   ❌ 422: {resp.text[:500]}")
                 resp.raise_for_status()
             except (requests.ConnectionError, requests.Timeout) as e:
                 if attempt == 2:
@@ -59,10 +71,13 @@ class BlogCMSClient:
             resp = self._request("POST", "/api/v1/media/upload", files={"file": f}, data={"folder": folder})
         return resp.json()["data"]["url"]
 
-    def create_category(self, name: str, slug: str = "") -> dict:
+    def create_category(self, name: str, slug: str = "", domain_id: int = None) -> dict:
         data = {"name": name}
         if slug:
             data["slug"] = slug
+        did = domain_id or self.domain_id
+        if did:
+            data["domain_id"] = did
         resp = self._request("POST", "/api/v1/categories", json=data)
         return resp.json()["data"]
 
@@ -76,7 +91,7 @@ class BlogCMSClient:
     def create_post(self, title: str, content: str, excerpt: str = "", category_id: int = None,
                     featured_image: str = "", status: str = "published", tags: list[str] = None,
                     published_at: str = "", seo_title: str = "", seo_description: str = "",
-                    seo_keywords: str = "") -> dict:
+                    seo_keywords: str = "", domain_id: int = None) -> dict:
         data = {"title": title, "content": content, "excerpt": excerpt, "status": status}
         if category_id:
             data["category_id"] = category_id
@@ -92,6 +107,9 @@ class BlogCMSClient:
             data["seo_description"] = seo_description
         if seo_keywords:
             data["seo_keywords"] = seo_keywords
+        did = domain_id or self.domain_id
+        if did:
+            data["domain_id"] = did
         resp = self._request("POST", "/api/v1/posts", json=data)
         return resp.json()["data"]
 

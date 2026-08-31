@@ -20,11 +20,7 @@ class ArticleGenerator:
     def __init__(self, cms: BlogCMSClient = None, topic: str = ""):
         self._retry_file = os.path.join(os.path.dirname(__file__), "retry_queue.json")
         self._retry_queue = self._load_retry_queue()
-        if Config.OPENROUTER_API_KEY:
-            self.llm = OpenRouterClient(Config.OPENROUTER_API_KEY, Config.OPENROUTER_MODEL, Config.OPENROUTER_IMAGE_MODEL, Config.OPENROUTER_FALLBACK_MODELS)
-        else:
-            from ollama_client import OllamaClient
-            self.llm = OllamaClient(Config.OLLAMA_URL, Config.OLLAMA_MODEL)
+        self._init_llm()
         self.cms = cms or BlogCMSClient(
             Config.BLOGCMS_URL,
             Config.BLOGCMS_EMAIL,
@@ -39,6 +35,29 @@ class ArticleGenerator:
             except Exception:
                 topic = Config.BLOGCMS_TOPIC
         self.topic = topic
+
+    def _init_llm(self):
+        """Prioritas: Ollama dulu, OpenRouter fallback."""
+        ollama_ok = False
+        if Config.OLLAMA_URL:
+            try:
+                import requests
+                resp = requests.get(Config.OLLAMA_URL.replace("/api/chat", "/api/tags"), timeout=5)
+                ollama_ok = resp.status_code == 200
+            except Exception:
+                ollama_ok = False
+
+        if ollama_ok:
+            from ollama_client import OllamaClient
+            self.llm = OllamaClient(Config.OLLAMA_URL, Config.OLLAMA_MODEL)
+            print("   🔗 Menggunakan Ollama")
+        elif Config.OPENROUTER_API_KEY:
+            self.llm = OpenRouterClient(Config.OPENROUTER_API_KEY, Config.OPENROUTER_MODEL, Config.OPENROUTER_IMAGE_MODEL, Config.OPENROUTER_FALLBACK_MODELS)
+            print("   🔗 Ollama tidak tersedia, menggunakan OpenRouter")
+        else:
+            from ollama_client import OllamaClient
+            self.llm = OllamaClient(Config.OLLAMA_URL, Config.OLLAMA_MODEL)
+            print("   🔗 Menggunakan Ollama (tanpa health check)")
 
     @staticmethod
     def _extract_points(points: list) -> list[str]:
@@ -250,6 +269,8 @@ class ArticleGenerator:
         seo_title = article_data.get("seo_title", title)
         seo_description = article_data.get("seo_description", excerpt)
         seo_keywords = article_data.get("seo_keywords", "")
+        if isinstance(seo_keywords, list):
+            seo_keywords = ", ".join(str(k) for k in seo_keywords)
         image_prompt = image_prompt_override or article_data.get("image_prompt", "")
 
         print(f"   Judul: {title}")
@@ -308,6 +329,9 @@ class ArticleGenerator:
             "status": "published",
             "tags": tags,
             "published_at": published_at,
+            "seo_title": seo_title,
+            "seo_description": seo_description,
+            "seo_keywords": seo_keywords,
         }
 
         try:
@@ -344,9 +368,16 @@ class ArticleGenerator:
         print(f"   BlogCMS: {Config.BLOGCMS_URL}\n")
 
         created = self.cms.create_domains(domains)
+        print(f"   ✅ {len(created)} domain baru dibuat")
 
-        print(f"{'='*60}")
-        print(f"✅ {len(created)} domain berhasil dibuat!")
+        all_domains = self.cms.get_domains()
+        domain_map = {d['host']: d for d in all_domains}
+        to_process = [domain_map[d] for d in domains if d in domain_map]
+
+        new_count = len(created)
+        exist_count = len(to_process) - new_count
+        print(f"   📋 Total diproses: {len(to_process)} ({new_count} baru, {exist_count} sudah ada)")
+
         print(f"{'='*60}")
 
         cf_tunnel_id = Config.CLOUDFLARE_TUNNEL_ID
@@ -361,7 +392,7 @@ class ArticleGenerator:
                 print(f"   ⚠️ Script {script_path} tidak ditemukan, skip tunnel")
                 use_tunnel = False
 
-        for dom in created:
+        for dom in to_process:
             host = dom['host']
 
             # Skip tunnel untuk domain localhost (tanpa titik)
@@ -455,9 +486,9 @@ class ArticleGenerator:
 
         print(f"\n{'='*60}")
         print("✅ Semua domain siap digunakan!")
-        for d in created:
+        for d in to_process:
             print(f"   - {d['host']} (ID: {d['id']}, theme: {d['theme_slug']})")
-        return created
+        return to_process
 
     def generate_topics(self, count: int = 5) -> list[str]:
         print("⏳ Generate ide artikel...")
@@ -506,8 +537,7 @@ class ArticleGenerator:
                 used_titles.append(post["title"])
             results.append(post)
             if i < count - 1:
-                print("   ⏳ Delay 30 detik biar tidak kena rate limit...")
-                time.sleep(30)
+                pass
 
         self._process_retry_queue()
 
@@ -532,7 +562,7 @@ class ArticleGenerator:
 
         for domain in domains:
             host = domain["host"]
-            domain_url = domain["url"]
+            domain_id = domain["id"]
             existing = domain["articles_count"]
 
             if existing > 0 and domain["articles_count"] >= 7:
@@ -541,7 +571,7 @@ class ArticleGenerator:
 
             print(f"\n{'='*60}")
             print(f"🏠 {host}")
-            cms = BlogCMSClient(domain_url, Config.BLOGCMS_EMAIL, Config.BLOGCMS_PASSWORD, Config.BLOGCMS_TOKEN, api_key=Config.BLOGCMS_API_KEY)
+            cms = BlogCMSClient(Config.BLOGCMS_URL, Config.BLOGCMS_EMAIL, Config.BLOGCMS_PASSWORD, Config.BLOGCMS_TOKEN, api_key=Config.BLOGCMS_API_KEY, domain_id=domain_id)
             gen = ArticleGenerator(cms=cms)
             print(f"   Topic: {gen.topic}")
             try:
@@ -568,38 +598,40 @@ class ArticleGenerator:
         total = 0
         for domain in domains:
             host = domain["host"]
-            domain_url = domain["url"]
+            domain_id = domain["id"]
             existing = domain["articles_count"]
             future = domain["future_scheduled"]
-            need = max(0, days - existing)
-            already = existing + future
 
             print(f"{'='*60}")
             print(f"🏠 {host}")
-            print(f"   URL    : {domain_url}")
+            print(f"   URL    : {domain['url']}")
+            print(f"   ID     : {domain_id}")
 
             cms = BlogCMSClient(
-                domain_url,
+                Config.BLOGCMS_URL,
                 Config.BLOGCMS_EMAIL,
                 Config.BLOGCMS_PASSWORD,
                 Config.BLOGCMS_TOKEN,
                 api_key=Config.BLOGCMS_API_KEY,
+                domain_id=domain_id,
             )
 
             gen = ArticleGenerator(cms=cms)
             print(f"   Topic  : {gen.topic}")
-            print(f"   Artikel: {existing} existing + {future} scheduled = {already} total")
-
-            if need <= 0:
-                print(f"   ✅ Sudah {already} artikel, target {days} tercapai. Lewati.")
-                print()
-                continue
-
-            print(f"   ➕ Perlu {need} artikel lagi")
 
             if start_date:
+                need = days
                 start = datetime.strptime(start_date, "%Y-%m-%d")
+                print(f"   Mode   : Generate {need} artikel dari {start_date}")
             else:
+                need = max(0, days - (existing + future))
+                already = existing + future
+                print(f"   Artikel: {existing} existing + {future} scheduled = {already} total")
+                if need <= 0:
+                    print(f"   ✅ Sudah {already} artikel, target {days} tercapai. Lewati.")
+                    print()
+                    continue
+                print(f"   ➕ Perlu {need} artikel lagi")
                 last_date = cms.get_last_published_date()
                 if last_date:
                     try:
@@ -628,8 +660,7 @@ class ArticleGenerator:
                     print(f"   ❌ Gagal generate artikel: {e}")
                     print(f"   ⏭️  Skip, lanjut ke artikel berikutnya...")
                 if i < need - 1:
-                    print("   ⏳ Delay 30 detik biar tidak kena rate limit...")
-                    time.sleep(30)
+                    pass
 
             print()
 

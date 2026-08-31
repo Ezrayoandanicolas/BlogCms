@@ -36,7 +36,13 @@ class CategoryController extends Controller
             'seo_title' => 'nullable|string|max:255',
             'seo_description' => 'nullable|string',
             'seo_keywords' => 'nullable|string',
+            'domain_id' => 'nullable|integer',
         ]);
+
+        if (isset($validated['domain_id'])) {
+            config(['app.domain_id' => $validated['domain_id']]);
+            unset($validated['domain_id']);
+        }
 
         $category = $this->categoryService->create($validated);
 
